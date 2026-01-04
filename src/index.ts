@@ -1,147 +1,419 @@
-import { Plugin, showMessage, getAllEditor, fetchSyncPost } from "siyuan";
+import {Plugin, showMessage, fetchSyncPost, IMenuBaseDetail} from "siyuan";
 
 const BATCH_SIZE = 10;
 const ASSETS_DIR = "/assets/";
+const MAX_DEPTH = 7; // 最大目录深度
+
+// 通过 window.require 获取 Node.js 模块
+const fs = window.require('fs');
+const path = window.require('path');
+
+// 常量定义
+const FILE_PROTOCOL = "file://";
+const HREF_ATTR = "data-href";
+const BLOCK_ID_ATTR = "data-node-id";
+const HIDDEN_DIRS = new Set(['node_modules', '.git', '.vscode', '.idea']);
 
 interface TreeNode {
     name: string;
-    type: "file" | "directory";
+    type: "file" | "directory" | "symlink"; // 添加 symlink 类型
     url?: string;
     children?: TreeNode[];
+    linkTarget?: string; // 符号链接目标路径
 }
 
-interface FileSystemEntry {
-    isFile: boolean;
-    isDirectory: boolean;
-    name: string;
-    createReader(): { readEntries(callback: (entries: FileSystemEntry[]) => void): void };
-    file(callback: (file: File) => void, errorCallback: (error: Error) => void): void;
+type FilterFn = (name: string) => boolean;
+
+// 默认文件过滤器：跳过隐藏文件和系统目录
+const defaultFilter: FilterFn = (name) => {
+    if (name.startsWith('.') || name.startsWith('~')) return false;
+    return !HIDDEN_DIRS.has(name);
+};
+
+// 缓存文件名，避免重复计算
+const fileNameCache = new Map<string, string>();
+function getFileName(filePath: string): string {
+    let name = fileNameCache.get(filePath);
+    if (!name) {
+        name = path.basename(filePath);
+        fileNameCache.set(filePath, name);
+    }
+    return name;
 }
 
-export default class NFPlugin extends Plugin {
-    private handleDropBindThis: (event: DragEvent) => void;
-    private initDropZoneBindThis: () => void;
-    private editorElement: HTMLElement | null = null;
-    private isInitialized = false;
+// 清理缓存（在操作完成后调用）
+function clearCache() {
+    fileNameCache.clear();
+}
+
+// 工作区错误类
+class WorkspacePathError extends Error {
+    constructor() {
+        super('不允许上传思源工作目录下的文件');
+        this.name = 'WorkspacePathError';
+    }
+}
+
+export default class NFPlugin extends Plugin{
+
+    private siyuanWorkspaceDir: string | null = null;
 
     async onload() {
         showMessage(`[${this.name}]: 插件已加载`);
-        this.handleDropBindThis = this.handleDrop.bind(this);
-        this.initDropZoneBindThis = this.initDropZone.bind(this);
-        this.eventBus.on("click-editorcontent", this.initDropZoneBindThis);
+        this.eventBus.on("open-menu-link", this.handleOpenMenuLink.bind(this));
+        // 获取思源工作目录
+        this.initSiyuanWorkspaceDir();
     }
 
-    private initDropZone() {
-        if (this.isInitialized) return;
-        const editors = getAllEditor();
-        if (editors.length === 0) return;
-
-        this.editorElement = editors[0].protyle.wysiwyg.element;
-        this.editorElement.addEventListener("drop", this.handleDropBindThis);
-        this.isInitialized = true;
-    }
-
-    private async handleDrop(event: DragEvent) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const items = event.dataTransfer?.items;
-        if (!items?.length) return;
-
-        for (const item of items) {
-            // @ts-ignore
-            const entry = item.webkitGetAsEntry?.() as FileSystemEntry | undefined;
-            if (entry?.isDirectory) {
-                showMessage(`[${this.name}]: 正在读取文件夹 - ${entry.name}`);
-                await this.processDirectory(entry);
+    // 初始化思源工作目录
+    private initSiyuanWorkspaceDir(): void {
+        try {
+            if (window.siyuan?.config?.system?.workspaceDir) {
+                this.siyuanWorkspaceDir = window.siyuan.config.system.workspaceDir;
                 return;
             }
-        }
-    }
-
-    private async processDirectory(directoryEntry: FileSystemEntry) {
-        try {
-            showMessage(`[${this.name}]: 正在处理文件夹...`);
-            const tree = await this.readDirectoryTree(directoryEntry);
-            const markdown = this.generateTreeMarkdown(tree, directoryEntry.name);
-            await this.insertToEditor(markdown);
-            showMessage(`[${this.name}]: 已处理 ${this.countFiles(tree)} 个文件`);
         } catch (err) {
-            console.error("处理文件夹失败:", err);
-            showMessage(`[${this.name}]: 处理失败 - ${err}`);
+            console.warn("初始化思源工作目录失败:", err);
         }
     }
 
-    private countFiles(tree: TreeNode[]): number {
-        return tree.reduce((acc, node) => {
-            return acc + (node.type === "file" ? 1 : this.countFiles(node.children || []));
-        }, 0);
+    // 检查路径是否在思源工作目录下
+    private isInSiyuanWorkspace(filePath: string): boolean {
+        if (!this.siyuanWorkspaceDir) return false;
+
+        // 规范化路径进行比较
+        const normalizedPath = path.normalize(filePath);
+        const normalizedWorkspace = path.normalize(this.siyuanWorkspaceDir);
+
+        return normalizedPath.startsWith(normalizedWorkspace + path.sep) ||
+               normalizedPath === normalizedWorkspace;
     }
 
-    private async readDirectoryTree(directoryEntry: FileSystemEntry): Promise<TreeNode[]> {
-        const reader = directoryEntry.createReader();
-        const allEntries: FileSystemEntry[] = [];
+    private handleOpenMenuLink = async ({detail}: {detail: IMenuBaseDetail}) => {
+        const {menu, element} = detail;
+        if (!element) return;
 
-        while (true) {
-            const entries = await new Promise<FileSystemEntry[]>(resolve => {
-                reader.readEntries(entries => resolve(entries as FileSystemEntry[]));
-            });
-            if (!entries.length) break;
-            allEntries.push(...entries);
+        try {
+            const href = element.getAttribute(HREF_ATTR);
+            if (!href?.startsWith(FILE_PROTOCOL)) return;
+
+            const filePath = decodeURIComponent(href.replace(FILE_PROTOCOL, ""));
+            if (!this.isValidFilePath(filePath, element, menu)) return;
+
+        } catch (err) {
+            this.logError("处理链接失败", err);
+        }
+    };
+
+    private isValidFilePath(filePath: string, element: HTMLElement, menu: any): boolean {
+        const fileName = getFileName(filePath);
+        const blockId = this.findBlockId(element);
+
+        if (!blockId) {
+            this.logError("无法获取块 ID");
+            return false;
         }
 
-        const fileEntries: FileSystemEntry[] = [];
+        if (!fs.existsSync(filePath)) {
+            showMessage(`[${this.name}]: 文件不存在: ${fileName}`);
+            return false;
+        }
+
+        menu.addItem({
+            icon: "iconUpload",
+            label: `上传本地资源: ${fileName}`,
+            click: () => this.uploadAndInsert(filePath, blockId),
+        });
+
+        return true;
+    }
+
+    private findBlockId(element: HTMLElement): string | null {
+        let current: HTMLElement | null = element;
+        while (current) {
+            const blockId = current.getAttribute(BLOCK_ID_ATTR);
+            if (blockId) return blockId;
+            current = current.parentElement;
+        }
+        return null;
+    }
+
+    private async uploadAndInsert(dirPath: string, blockId: string) {
+        const startTime = Date.now();
+        clearCache(); // 清理缓存
+
+        try {
+            // 检查是否在思源工作目录下
+            if (this.isInSiyuanWorkspace(dirPath)) {
+                throw new WorkspacePathError();
+            }
+
+            if (!this.isDirectory(dirPath)) {
+                showMessage(`[${this.name}]: 仅支持文件夹上传`);
+                return;
+            }
+
+            showMessage(`[${this.name}]: 正在检查文件夹深度...`);
+            const maxDepth = await this.checkDirectoryDepth(dirPath);
+
+            if (maxDepth > MAX_DEPTH) {
+                showMessage(`[${this.name}]: 文件夹深度超过限制 (${MAX_DEPTH}层)，不允许上传`);
+                return;
+            }
+
+            showMessage(`[${this.name}]: 正在扫描文件夹...`);
+            const tree = await this.buildDirectoryTree(dirPath, 0);
+            const totalFiles = this.countFiles(tree);
+
+            if (totalFiles === 0) {
+                showMessage(`[${this.name}]: 文件夹为空或无可上传文件`);
+                return;
+            }
+
+            showMessage(`[${this.name}]: 正在上传 ${totalFiles} 个文件...`);
+            await this.insertMarkdown(tree, dirPath, blockId);
+
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            showMessage(`[${this.name}]: 已上传 ${totalFiles} 个文件 (耗时 ${elapsed}s)`);
+
+        } catch (err) {
+            this.logError("处理文件夹失败", err);
+            const errorMsg = this.getErrorMessage(err);
+            showMessage(`[${this.name}]: ${errorMsg}`);
+        } finally {
+            clearCache(); // 确保清理缓存
+        }
+    }
+
+    // 检查目录树的最大深度
+    private async checkDirectoryDepth(dirPath: string, currentDepth = 1): Promise<number> {
+        let maxDepth = currentDepth;
+
+        try {
+            const entries = await fs.promises.readdir(dirPath, {withFileTypes: true});
+
+            for (const entry of entries) {
+                // 只检查目录，忽略文件和符号链接
+                if (entry.isDirectory() && defaultFilter(entry.name)) {
+                    const fullPath = path.join(dirPath, entry.name);
+
+                    // 跳过思源工作目录下的文件夹
+                    if (this.isInSiyuanWorkspace(fullPath)) {
+                        continue;
+                    }
+
+                    // 使用 lstat 检查是否为符号链接
+                    const lstat = fs.lstatSync(fullPath);
+                    if (lstat.isSymbolicLink()) {
+                        continue;
+                    }
+
+                    // 递归检查子目录深度
+                    const childDepth = await this.checkDirectoryDepth(fullPath, currentDepth + 1);
+                    maxDepth = Math.max(maxDepth, childDepth);
+
+                    // 提前终止：如果已经超过限制，直接返回
+                    if (maxDepth > MAX_DEPTH) {
+                        return maxDepth;
+                    }
+                }
+            }
+        } catch (err) {
+            // 忽略检查错误
+        }
+
+        return maxDepth;
+    }
+
+    private isDirectory(dirPath: string): boolean {
+        try {
+            return fs.statSync(dirPath).isDirectory();
+        } catch {
+            return false;
+        }
+    }
+
+    private async buildDirectoryTree(
+        dirPath: string,
+        currentDepth: number
+    ): Promise<TreeNode[]> {
+        const entries = await fs.promises.readdir(dirPath, {withFileTypes: true});
         const nodes: TreeNode[] = [];
+        const filePaths: string[] = [];
+        const subDirs: Array<{name: string, path: string}> = [];
 
-        for (const entry of allEntries) {
-            if (entry.isFile) {
-                fileEntries.push(entry);
-            } else if (entry.isDirectory) {
-                const children = await this.readDirectoryTree(entry);
-                nodes.push({ name: entry.name, type: "directory", children });
+        // 分类收集文件和目录
+        for (const entry of entries) {
+            if (!defaultFilter(entry.name)) continue;
+
+            const fullPath = path.join(dirPath, entry.name);
+
+            // 使用 lstat 检查符号链接
+            const lstat = fs.lstatSync(fullPath);
+
+            if (lstat.isSymbolicLink()) {
+                // 符号链接，不上传但记录
+                const target = fs.readlinkSync(fullPath);
+                nodes.push({
+                    name: entry.name,
+                    type: "symlink",
+                    linkTarget: target
+                });
+            } else if (entry.isFile()) {
+               filePaths.push(fullPath);
+            } else if (entry.isDirectory()) {
+                // 检查子目录是否在思源工作目录下
+                if (this.isInSiyuanWorkspace(fullPath)) {
+                    this.logWarn(`跳过思源工作目录下的文件夹: ${entry.name}`);
+                    continue;
+                }
+                // 收集子目录，稍后处理
+                subDirs.push({name: entry.name, path: fullPath});
             }
         }
 
-        if (fileEntries.length) {
-            const urlMap = await this.uploadFiles(fileEntries);
-            for (const entry of fileEntries) {
-                nodes.push({ name: entry.name, type: "file", url: urlMap.get(entry.name) });
-            }
+        // 批量上传当前目录的文件
+        await this.uploadBatchFiles(filePaths, nodes);
+
+        // 串行处理子目录
+        for (const subDir of subDirs) {
+            await this.processDirectory(subDir.path, subDir.name, nodes, currentDepth + 1);
         }
 
         return nodes;
     }
 
-    private getFileFromFileEntry(entry: FileSystemEntry): Promise<File> {
-        return new Promise((resolve, reject) => {
-            entry.file(resolve, reject);
-        });
+    private async processDirectory(
+        fullPath: string,
+        name: string,
+        nodes: TreeNode[],
+        depth: number
+    ): Promise<void> {
+        try {
+            const children = await this.buildDirectoryTree(fullPath, depth);
+            if (children.length > 0) {
+                nodes.push({name, type: "directory", children});
+            }
+        } catch (err) {
+            this.logWarn(`跳过目录 ${name}: ${this.getErrorMessage(err)}`);
+        }
     }
 
-    private async uploadFiles(entries: FileSystemEntry[]): Promise<Map<string, string>> {
+    private async uploadBatchFiles(filePaths: string[], nodes: TreeNode[]): Promise<void> {
+        if (filePaths.length === 0) return;
+
+        const urlMap = await this.uploadFilesInBatches(filePaths);
+
+        for (const filePath of filePaths) {
+            const name = getFileName(filePath);
+            const url = urlMap.get(name);
+            if (url) {
+                nodes.push({name, type: "file", url});
+            }
+        }
+    }
+
+    private async uploadFilesInBatches(filePaths: string[]): Promise<Map<string, string>> {
         const allResults = new Map<string, string>();
+        const batches: string[][] = [];
 
-        for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-            const batch = entries.slice(i, i + BATCH_SIZE);
-            const formData = new FormData();
-            formData.append("assetsDirPath", ASSETS_DIR);
+        // 将文件分批
+        for (let i = 0; i < filePaths.length; i += BATCH_SIZE) {
+            batches.push(filePaths.slice(i, i + BATCH_SIZE));
+        }
 
-            const files = await Promise.all(batch.map(e => this.getFileFromFileEntry(e)));
-            files.forEach(file => formData.append("file[]", file));
+        // 串行上传每批
+        for (let i = 0; i < batches.length; i++) {
+            const batchResults = await this.uploadSingleBatch(batches[i], i + 1);
+            batchResults.forEach((url, name) => allResults.set(name, url));
+        }
 
-            const response = await fetch("/api/asset/upload", { method: "POST", body: formData });
+        return allResults;
+    }
+
+    private async uploadSingleBatch(batch: string[], batchNumber: number): Promise<Map<string, string>> {
+        const formData = await this.createFormDataFromPaths(batch);
+        return this.sendUploadRequest(formData, batchNumber);
+    }
+
+    private async createFormDataFromPaths(filePaths: string[]): Promise<FormData> {
+        const formData = new FormData();
+        formData.append("assetsDirPath", ASSETS_DIR);
+
+        // 并发读取所有文件
+        const fileReadPromises = filePaths.map(async (filePath) => {
+            try {
+                const buffer = await fs.promises.readFile(filePath);
+                const name = getFileName(filePath);
+                return {file: new File([buffer], name), success: true};
+            } catch {
+                this.logWarn(`读取文件失败 ${filePath}`);
+                return {file: null, success: false};
+            }
+        });
+
+        const results = await Promise.all(fileReadPromises);
+
+        for (const result of results) {
+            if (result.success && result.file) {
+                formData.append("file[]", result.file);
+            }
+        }
+
+        return formData;
+    }
+
+    private async sendUploadRequest(
+        formData: FormData,
+        batchNumber: number
+    ): Promise<Map<string, string>> {
+        try {
+            const response = await fetch("/api/asset/upload", {
+                method: "POST",
+                body: formData,
+            });
             const result = await response.json();
 
             if (result.code !== 0) {
                 throw new Error(result.msg || "上传失败");
             }
 
-            Object.entries(result.data.succMap || {}).forEach(([name, url]: [string, string]) => {
-                allResults.set(name, url);
-            });
+            return this.parseUploadResponse(result.data?.succMap || {});
+
+        } catch (err) {
+            this.logError(`批量上传失败 (批次 ${batchNumber})`, err);
+            throw err;
+        }
+    }
+
+    private parseUploadResponse(succMap: Record<string, string>): Map<string, string> {
+        const results = new Map<string, string>();
+        for (const [name, url] of Object.entries(succMap)) {
+            results.set(name, url);
+        }
+        return results;
+    }
+
+    private async insertMarkdown(tree: TreeNode[], dirPath: string, blockId: string): Promise<void> {
+        const dirName = getFileName(dirPath);
+        const markdown = this.generateTreeMarkdown(tree, dirName);
+        await this.insertToEditor(markdown, blockId);
+    }
+
+    private countFiles(tree: TreeNode[]): number {
+        let count = 0;
+        const queue = [...tree];
+
+        while (queue.length > 0) {
+            const node = queue.shift()!;
+            if (node.type === "file") {
+                count++;
+            } else if (node.children) {
+                queue.push(...node.children);
+            }
         }
 
-        return allResults;
+        return count;
     }
 
     private generateTreeMarkdown(tree: TreeNode[], rootName: string, indent = 0): string {
@@ -152,54 +424,64 @@ export default class NFPlugin extends Plugin {
         }
 
         for (const node of tree) {
-            const prefix = "  ".repeat(indent + 1) + "- ";
-            if (node.type === "directory") {
-                lines.push(`${prefix}📁 **${node.name}**`);
-                if (node.children?.length) {
-                    lines.push(this.generateTreeMarkdown(node.children, "", indent + 1));
-                }
-            } else {
-                lines.push(node.url ? `${prefix}[${node.name}](${node.url})` : `${prefix}\`${node.name}\``);
-            }
+            lines.push(...this.renderNode(node, indent));
         }
 
         return lines.join("\n");
     }
 
-    private async insertToEditor(markdown: string) {
-        const editors = getAllEditor();
-        if (editors.length === 0) {
-            showMessage(`[${this.name}]: 没有打开的编辑器`);
-            return;
+    private renderNode(node: TreeNode, indent: number): string[] {
+        const prefix = "  ".repeat(indent + 1) + "- ";
+
+        if (node.type === "directory") {
+            const lines = [`${prefix}📁 **${node.name}**`];
+            if (node.children?.length) {
+                lines.push(this.generateTreeMarkdown(node.children, "", indent + 1));
+            }
+            return lines;
         }
 
-        const protyle = editors[0].protyle;
-        const rootId = protyle.block?.rootID || protyle.wysiwyg?.element?.firstElementChild?.getAttribute("data-node-id");
-
-        if (!rootId) {
-            showMessage(`[${this.name}]: 无法获取文档 ID`);
-            return;
+        if (node.type === "symlink") {
+            // 符号链接，生成 markdown 但不上传
+            const target = node.linkTarget || "未知目标";
+            return [`${prefix}🔗 ${node.name} → \`${target}\``];
         }
 
+        const link = node.url ? `[${node.name}](${node.url})` : `\`${node.name}\``;
+        return [`${prefix}${link}`];
+    }
+
+    private async insertToEditor(markdown: string, blockId: string): Promise<void> {
         try {
-            await fetchSyncPost("/api/block/appendBlock", {
+            await fetchSyncPost("/api/block/insertBlock", {
                 dataType: "markdown",
                 data: markdown,
-                parentID: rootId,
+                previousID: blockId,
             });
         } catch (err) {
-            console.error("插入内容失败:", err);
-            showMessage(`[${this.name}]: 插入失败`);
+            this.logError("插入内容失败", err);
+            throw new Error("插入内容失败");
         }
     }
 
+    private getErrorMessage(err: unknown): string {
+        if (err instanceof WorkspacePathError) return err.message;
+        if (err instanceof Error) return err.message;
+        return String(err);
+    }
+
+    private logError(message: string, err?: unknown): void {
+        const errorDetails = err ? `: ${this.getErrorMessage(err)}` : "";
+        console.error(`[${this.name}] ${message}${errorDetails}`);
+    }
+
+    private logWarn(message: string): void {
+        console.warn(`[${this.name}] ${message}`);
+    }
+
     async onunload() {
-        if (this.editorElement) {
-            this.editorElement.removeEventListener("drop", this.handleDropBindThis);
-        }
-        this.eventBus.off("click-editorcontent", this.initDropZoneBindThis);
-        this.isInitialized = false;
-        this.editorElement = null;
+        this.eventBus.off("open-menu-link", this.handleOpenMenuLink);
         showMessage(`[${this.name}]: 插件已卸载`);
+        clearCache();
     }
 }
