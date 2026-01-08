@@ -100,17 +100,20 @@ export default class NFPlugin extends Plugin{
                normalizedPath === this.normalizedWorkspaceDir;
     }
 
+    // 检查路径是否为思源工作目录的祖先目录（防止上传父目录）
+    private isAncestorOfSiyuanWorkspace(filePath: string): boolean {
+        if (!this.normalizedWorkspaceDir) return false;
+
+        const normalizedPath = path.normalize(filePath);
+        // 检查思源工作目录是否以 filePath 开头（即 filePath 是祖先目录）
+        return this.normalizedWorkspaceDir.startsWith(normalizedPath + path.sep) ||
+               normalizedPath === this.normalizedWorkspaceDir;
+    }
+
     // 安全验证：检查路径是否包含遍历攻击 (../)
     private hasPathTraversal(filePath: string): boolean {
-        const normalized = path.normalize(filePath);
-        // 检查是否包含 ".." 且不在原始路径的合法位置
-        const parts = normalized.split(path.sep);
-        for (const part of parts) {
-            if (part === '..') {
-                return true;
-            }
-        }
-        return false;
+        // 检查原始路径是否包含 ".."（在 path.normalize 处理之前）
+        return filePath.includes('..');
     }
 
     // 验证路径是否安全
@@ -125,9 +128,13 @@ export default class NFPlugin extends Plugin{
             return {valid: false, error: '路径为空'};
         }
 
-        // 检查是否在思源工作目录下
+        // 检查是否在思源工作目录下或为其祖先目录
         if (this.isInSiyuanWorkspace(filePath)) {
             return {valid: false, error: '不允许上传思源工作目录下的文件'};
+        }
+
+        if (this.isAncestorOfSiyuanWorkspace(filePath)) {
+            return {valid: false, error: '不允许上传思源工作目录及其祖先目录'};
         }
 
         return {valid: true};
@@ -280,6 +287,7 @@ export default class NFPlugin extends Plugin{
     }
 
     // 合并深度检查和树构建，只遍历一次目录树
+    // visitedInodes: 记录已访问的 inode（dev-ino），用于检测符号链接循环和目录硬链接循环
     private async buildDirectoryTree(
         dirPath: string,
         currentDepth: number,
@@ -423,12 +431,10 @@ export default class NFPlugin extends Plugin{
 
         const urlMap = await this.uploadFilesInBatches(filePaths);
 
-        // 修复文件名冲突：使用 filePath 作为 key，而非 name
+        // 使用 filePath 从 urlMap 获取 URL
         for (const filePath of filePaths) {
             const name = getFileName(filePath);
-            // 为同名文件生成唯一标识符
-            const uniqueKey = this.generateFileKey(filePath);
-            const url = urlMap.get(uniqueKey);
+            const url = urlMap.get(filePath);
 
             if (url) {
                 nodes.push({name, type: "file", url});
@@ -439,43 +445,13 @@ export default class NFPlugin extends Plugin{
         }
     }
 
-    // P0: 直接使用 filePath 作为唯一键（无需 MD5 哈希）
-    private generateFileKey(filePath: string): string {
-        return filePath;
-    }
-
     private async uploadFilesInBatches(filePaths: string[]): Promise<Map<string, string>> {
         const allResults = new Map<string, string>();
 
-        // 检测同名文件冲突，生成唯一文件名映射
-        const nameCountMap = new Map<string, number>();
-        const fileRenameMap = new Map<string, string>(); // filePath -> 上传时使用的文件名
-
-        for (const filePath of filePaths) {
-            const originalName = getFileName(filePath);
-            const count = nameCountMap.get(originalName) || 0;
-            nameCountMap.set(originalName, count + 1);
-
-            if (count > 0) {
-                const ext = path.extname(originalName);
-                const baseName = path.basename(originalName, ext);
-                const uniqueName = `${baseName}_${count}${ext}`;
-                fileRenameMap.set(filePath, uniqueName);
-            } else {
-                fileRenameMap.set(filePath, originalName);
-            }
-        }
-
         // 将文件分批
-        const batches: Array<{paths: string[], renameMap: Map<string, string>}> = [];
+        const batches: string[][] = [];
         for (let i = 0; i < filePaths.length; i += BATCH_SIZE) {
-            const batchPaths = filePaths.slice(i, i + BATCH_SIZE);
-            const batchRenameMap = new Map<string, string>();
-            batchPaths.forEach(p => {
-                const rename = fileRenameMap.get(p);
-                if (rename) batchRenameMap.set(p, rename);
-            });
-            batches.push({paths: batchPaths, renameMap: batchRenameMap});
+            batches.push(filePaths.slice(i, i + BATCH_SIZE));
         }
 
         // 串行上传每批
@@ -485,19 +461,17 @@ export default class NFPlugin extends Plugin{
                 break;
             }
 
-            const {paths: batchPaths, renameMap: batchRenameMap} = batches[i];
-            const batchResults = await this.uploadSingleBatch(batchPaths, batchRenameMap, i + 1);
+            const batchPaths = batches[i];
+            const batchResults = await this.uploadSingleBatch(batchPaths, i + 1);
 
-            // 使用实际上传的文件名查找 URL
+            // 使用原始文件名查找 URL，用 filePath 存储
             for (const filePath of batchPaths) {
-                const uploadedName = batchRenameMap.get(filePath)!;
-                const uniqueKey = this.generateFileKey(filePath);
-                const url = batchResults.get(uploadedName);
+                const fileName = getFileName(filePath);
+                const url = batchResults.get(fileName);
 
                 if (url) {
-                    allResults.set(uniqueKey, url);
+                    allResults.set(filePath, url);
                 } else {
-                    // 上传失败
                     this.failedFiles.push(filePath);
                 }
             }
@@ -506,18 +480,18 @@ export default class NFPlugin extends Plugin{
         return allResults;
     }
 
-    private async uploadSingleBatch(batch: string[], renameMap: Map<string, string>, batchNumber: number): Promise<Map<string, string>> {
-        const formData = await this.createFormDataFromPaths(batch, renameMap);
+    private async uploadSingleBatch(batch: string[], batchNumber: number): Promise<Map<string, string>> {
+        const formData = await this.createFormDataFromPaths(batch);
         return this.sendUploadRequest(formData, batchNumber);
     }
 
-    private async createFormDataFromPaths(filePaths: string[], renameMap: Map<string, string>): Promise<FormData> {
+    private async createFormDataFromPaths(filePaths: string[]): Promise<FormData> {
         const formData = new FormData();
         formData.append("assetsDirPath", ASSETS_DIR);
 
         // 并发读取所有文件（限制并发数以降低内存占用）
         const MAX_CONCURRENT_READS = 5;
-        const results: Array<{filePath: string, file: File | null, success: boolean}> = [];
+        const results: Array<{file: File | null, success: boolean}> = [];
 
         for (let i = 0; i < filePaths.length; i += MAX_CONCURRENT_READS) {
             const batch = filePaths.slice(i, i + MAX_CONCURRENT_READS);
@@ -526,17 +500,16 @@ export default class NFPlugin extends Plugin{
                 try {
                     // 检查取消信号
                     if (this.uploadAbortController?.signal.aborted) {
-                        return {filePath, file: null, success: false};
+                        return {file: null, success: false};
                     }
 
                     const buffer = await fs.promises.readFile(filePath);
-                    // 使用重命名后的文件名（如果有冲突）
-                    const uploadName = renameMap.get(filePath) || getFileName(filePath);
-                    return {filePath, file: new File([buffer], uploadName), success: true};
+                    const fileName = getFileName(filePath);
+                    return {file: new File([buffer], fileName), success: true};
                 } catch {
                     this.failedFiles.push(filePath);
                     this.logWarn(`读取文件失败 ${filePath}`);
-                    return {filePath, file: null, success: false};
+                    return {file: null, success: false};
                 }
             });
 
