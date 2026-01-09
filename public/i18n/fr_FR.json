@@ -1,0 +1,35 @@
+{
+    "pluginLoaded": "Plugin chargé",
+    "pluginUnloaded": "Plugin déchargé",
+    "uploadCanceled": "Téléchargement annulé",
+    "error": {
+        "workspacePath": "Impossible de télécharger des fichiers depuis l'espace de travail SiYuan",
+        "depthExceeded": "La profondeur du répertoire dépasse la limite (${depth}/${maxDepth})",
+        "pathTraversal": "Le chemin contient des caractères illégaux (..)",
+        "pathEmpty": "Le chemin est vide",
+        "workspaceAncestor": "Impossible de télécharger l'espace de travail SiYuan ou ses ancêtres",
+        "workspaceFile": "Impossible de télécharger des fichiers depuis l'espace de travail SiYuan",
+        "handleLink": "Échec du traitement du lien",
+        "noBlockId": "Impossible d'obtenir l'ID du bloc",
+        "folderOnly": "Seul le téléchargement de dossiers est pris en charge",
+        "fileNotExist": "Le fichier n'existe pas : ${fileName}",
+        "handleFolder": "Échec du traitement du dossier",
+        "fileTooLarge": "Fichier trop volumineux (${size}MB), ignoré : ${fileName}",
+        "cannotRead": "Impossible de lire ${fileName} : ${error}",
+        "readFileFailed": "Échec de la lecture du fichier ${filePath}",
+        "batchUploadFailed": "Échec du téléchargement par lot (lot ${batchNumber}) : ${error}",
+        "uploadFailed": "Échec du téléchargement",
+        "insertFailed": "Échec de l'insertion du contenu",
+        "unknownTarget": "Cible inconnue"
+    },
+    "upload": {
+        "label": "Télécharger la ressource locale : ${fileName}",
+        "scanning": "Analyse du dossier...",
+        "emptyFolder": "Le dossier est vide ou aucun fichier à télécharger",
+        "foundFiles": "${count} fichiers trouvés, téléchargement en cours...",
+        "success": "${count} fichiers téléchargés (temps écoulé ${elapsed}s)",
+        "partialFailed": "${success}/${total} fichiers téléchargés, ${failed} échoués (temps écoulé ${elapsed}s), voir la console pour les détails",
+        "failedFilesList": "Liste des fichiers échoués :\n${files}"
+    },
+    "workspaceInitFailed": "Échec de l'initialisation de l'espace de travail SiYuan : ${error}"
+}

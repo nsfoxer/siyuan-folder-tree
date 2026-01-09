@@ -1,0 +1,35 @@
+{
+    "pluginLoaded": "Плагин загружен",
+    "pluginUnloaded": "Плагин выгружен",
+    "uploadCanceled": "Загрузка отменена",
+    "error": {
+        "workspacePath": "Нельзя загружать файлы из рабочей области SiYuan",
+        "depthExceeded": "Глубина каталога превышает лимит (${depth}/${maxDepth})",
+        "pathTraversal": "Путь содержит недопустимые символы (..)",
+        "pathEmpty": "Путь пуст",
+        "workspaceAncestor": "Нельзя загружать рабочую область SiYuan или её предков",
+        "workspaceFile": "Нельзя загружать файлы из рабочей области SiYuan",
+        "handleLink": "Ошибка обработки ссылки",
+        "noBlockId": "Не удается получить ID блока",
+        "folderOnly": "Поддерживается только загрузка папок",
+        "fileNotExist": "Файл не существует: ${fileName}",
+        "handleFolder": "Ошибка обработки папки",
+        "fileTooLarge": "Файл слишком большой (${size}MB), пропущен: ${fileName}",
+        "cannotRead": "Не удается прочитать ${fileName}: ${error}",
+        "readFileFailed": "Ошибка чтения файла ${filePath}",
+        "batchUploadFailed": "Ошибка пакетной загрузки (пакет ${batchNumber}): ${error}",
+        "uploadFailed": "Ошибка загрузки",
+        "insertFailed": "Ошибка вставки содержимого",
+        "unknownTarget": "Неизвестная цель"
+    },
+    "upload": {
+        "label": "Загрузить локальный ресурс: ${fileName}",
+        "scanning": "Сканирование папки...",
+        "emptyFolder": "Папка пуста или нет файлов для загрузки",
+        "foundFiles": "Найдено ${count} файлов, загрузка...",
+        "success": "Загружено ${count} файлов (затрачено ${elapsed}s)",
+        "partialFailed": "Загружено ${success}/${total} файлов, ${failed} с ошибкой (затрачено ${elapsed}s), подробности в консоли",
+        "failedFilesList": "Список неудачных файлов:\n${files}"
+    },
+    "workspaceInitFailed": "Ошибка инициализации рабочей области SiYuan: ${error}"
+}

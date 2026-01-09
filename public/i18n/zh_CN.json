@@ -1,20 +1,35 @@
 {
-    "addTopBarIcon": "使用插件添加一个顶栏按钮",
-    "cancel": "取消",
-    "save": "保存",
-    "byeMenu": "再见，菜单！",
-    "helloPlugin": "你好，插件！",
-    "byePlugin": "再见，插件！",
-    "showDialog": "弹出一个对话框",
-    "removedData": "数据已删除",
-    "confirmRemove": "确认删除 ${name} 中的数据？",
-    "insertEmoji": "插入表情",
-    "removeSpace": "移除空格",
-    "getTab": "在日志中打印出已打开的所有自定义页签",
-    "name": "思源",
-    "hello": {
-        "makesure": "使用这个模板之前，请阅读<a href=\"https://github.com/siyuan-note/plugin-sample\">官方教程</a>, 确保自己已经理解了插件的基本开发流程。"
+    "pluginLoaded": "插件已加载",
+    "pluginUnloaded": "插件已卸载",
+    "uploadCanceled": "上传已取消",
+    "error": {
+        "workspacePath": "不允许上传思源工作目录下的文件",
+        "depthExceeded": "目录深度超过限制 (${depth}/${maxDepth})",
+        "pathTraversal": "路径包含非法字符 (..)",
+        "pathEmpty": "路径为空",
+        "workspaceAncestor": "不允许上传思源工作目录及其祖先目录",
+        "workspaceFile": "不允许上传思源工作目录下的文件",
+        "handleLink": "处理链接失败",
+        "noBlockId": "无法获取块 ID",
+        "folderOnly": "仅支持文件夹上传",
+        "fileNotExist": "文件不存在: ${fileName}",
+        "handleFolder": "处理文件夹失败",
+        "fileTooLarge": "文件过大 (${size}MB)，已跳过: ${fileName}",
+        "cannotRead": "无法读取 ${fileName}: ${error}",
+        "readFileFailed": "读取文件失败 ${filePath}",
+        "batchUploadFailed": "批量上传失败 (批次 ${batchNumber}): ${error}",
+        "uploadFailed": "上传失败",
+        "insertFailed": "插入内容失败",
+        "unknownTarget": "未知目标"
     },
-    "hintTitle": "关于",
-    "hintDesc": "<a href='https://github.com/siyuan-note/plugin-sample-vite-svelte'>🔗 plugin-sample-vite-svelte</a><br>💻 @frostime<br>💻 @88250<br>💻 @zxkmm"
+    "upload": {
+        "label": "上传本地资源: ${fileName}",
+        "scanning": "正在扫描文件夹...",
+        "emptyFolder": "文件夹为空或无可上传文件",
+        "foundFiles": "发现 ${count} 个文件，正在上传...",
+        "success": "已上传 ${count} 个文件 (耗时 ${elapsed}s)",
+        "partialFailed": "已上传 ${success}/${total} 个文件，失败 ${failed} 个 (耗时 ${elapsed}s)，详见控制台",
+        "failedFilesList": "失败文件列表:\n${files}"
+    },
+    "workspaceInitFailed": "初始化思源工作目录失败: ${error}"
 }

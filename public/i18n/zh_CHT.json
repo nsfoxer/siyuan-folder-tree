@@ -1,0 +1,35 @@
+{
+    "pluginLoaded": "插件已加載",
+    "pluginUnloaded": "插件已卸載",
+    "uploadCanceled": "上傳已取消",
+    "error": {
+        "workspacePath": "不允許上傳思源工作目錄下的檔案",
+        "depthExceeded": "目錄深度超過限制 (${depth}/${maxDepth})",
+        "pathTraversal": "路徑包含非法字元 (..)",
+        "pathEmpty": "路徑為空",
+        "workspaceAncestor": "不允許上傳思源工作目錄及其祖先目錄",
+        "workspaceFile": "不允許上傳思源工作目錄下的檔案",
+        "handleLink": "處理連結失敗",
+        "noBlockId": "無法獲取塊 ID",
+        "folderOnly": "僅支援資料夾上傳",
+        "fileNotExist": "檔案不存在: ${fileName}",
+        "handleFolder": "處理資料夾失敗",
+        "fileTooLarge": "檔案過大 (${size}MB)，已跳過: ${fileName}",
+        "cannotRead": "無法讀取 ${fileName}: ${error}",
+        "readFileFailed": "讀取檔案失敗 ${filePath}",
+        "batchUploadFailed": "批次上傳失敗 (批次 ${batchNumber}): ${error}",
+        "uploadFailed": "上傳失敗",
+        "insertFailed": "插入內容失敗",
+        "unknownTarget": "未知目標"
+    },
+    "upload": {
+        "label": "上傳本地資源: ${fileName}",
+        "scanning": "正在掃描資料夾...",
+        "emptyFolder": "資料夾為空或無可上傳檔案",
+        "foundFiles": "發現 ${count} 個檔案，正在上傳...",
+        "success": "已上傳 ${count} 個檔案 (耗時 ${elapsed}s)",
+        "partialFailed": "已上傳 ${success}/${total} 個檔案，失敗 ${failed} 個 (耗時 ${elapsed}s)，詳見控制台",
+        "failedFilesList": "失敗檔案列表:\n${files}"
+    },
+    "workspaceInitFailed": "初始化思源工作目錄失敗: ${error}"
+}

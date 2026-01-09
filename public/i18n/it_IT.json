@@ -1,0 +1,35 @@
+{
+    "pluginLoaded": "Plugin caricato",
+    "pluginUnloaded": "Plugin disattivato",
+    "uploadCanceled": "Caricamento annullato",
+    "error": {
+        "workspacePath": "Impossibile caricare file dall'area di lavoro SiYuan",
+        "depthExceeded": "La profondità della directory supera il limite (${depth}/${maxDepth})",
+        "pathTraversal": "Il percorso contiene caratteri illegali (..)",
+        "pathEmpty": "Il percorso è vuoto",
+        "workspaceAncestor": "Impossibile caricare l'area di lavoro SiYuan o i suoi antenati",
+        "workspaceFile": "Impossibile caricare file dall'area di lavoro SiYuan",
+        "handleLink": "Gestione del collegamento non riuscita",
+        "noBlockId": "Impossibile ottenere l'ID del blocco",
+        "folderOnly": "Supportato solo il caricamento di cartelle",
+        "fileNotExist": "Il file non esiste: ${fileName}",
+        "handleFolder": "Gestione della cartella non riuscita",
+        "fileTooLarge": "File troppo grande (${size}MB), saltato: ${fileName}",
+        "cannotRead": "Impossibile leggere ${fileName}: ${error}",
+        "readFileFailed": "Lettura del file non riuscita ${filePath}",
+        "batchUploadFailed": "Caricamento batch non riuscito (batch ${batchNumber}): ${error}",
+        "uploadFailed": "Caricamento non riuscito",
+        "insertFailed": "Inserimento del contenuto non riuscito",
+        "unknownTarget": "Destinazione sconosciuta"
+    },
+    "upload": {
+        "label": "Carica risorsa locale: ${fileName}",
+        "scanning": "Scansione cartella...",
+        "emptyFolder": "La cartella è vuota o nessun file da caricare",
+        "foundFiles": "Trovati ${count} file, caricamento in corso...",
+        "success": "Caricati ${count} file (tempo trascorso ${elapsed}s)",
+        "partialFailed": "Caricati ${success}/${total} file, ${failed} non riusciti (tempo trascorso ${elapsed}s), vedi console per dettagli",
+        "failedFilesList": "Elenco file non riusciti:\n${files}"
+    },
+    "workspaceInitFailed": "Inizializzazione dell'area di lavoro SiYuan non riuscita: ${error}"
+}

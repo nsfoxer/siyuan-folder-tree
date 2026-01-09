@@ -1,0 +1,35 @@
+{
+    "pluginLoaded": "プラグインが読み込まれました",
+    "pluginUnloaded": "プラグインがアンロードされました",
+    "uploadCanceled": "アップロードがキャンセルされました",
+    "error": {
+        "workspacePath": "SiYuanワークスペースからファイルをアップロードできません",
+        "depthExceeded": "ディレクトリの深さが制限を超えています (${depth}/${maxDepth})",
+        "pathTraversal": "パスに不正な文字が含まれています (..)",
+        "pathEmpty": "パスが空です",
+        "workspaceAncestor": "SiYuanワークスペースまたはその上位ディレクトリをアップロードできません",
+        "workspaceFile": "SiYuanワークスペースからファイルをアップロードできません",
+        "handleLink": "リンクの処理に失敗しました",
+        "noBlockId": "ブロックIDを取得できません",
+        "folderOnly": "フォルダーのアップロードのみサポートされています",
+        "fileNotExist": "ファイルが存在しません: ${fileName}",
+        "handleFolder": "フォルダーの処理に失敗しました",
+        "fileTooLarge": "ファイルが大きすぎます (${size}MB)、スキップしました: ${fileName}",
+        "cannotRead": "${fileName}を読み取れません: ${error}",
+        "readFileFailed": "ファイルの読み取りに失敗しました ${filePath}",
+        "batchUploadFailed": "バッチアップロードが失敗しました (バッチ ${batchNumber}): ${error}",
+        "uploadFailed": "アップロードに失敗しました",
+        "insertFailed": "コンテンツの挿入に失敗しました",
+        "unknownTarget": "不明なターゲット"
+    },
+    "upload": {
+        "label": "ローカルリソースをアップロード: ${fileName}",
+        "scanning": "フォルダーをスキャン中...",
+        "emptyFolder": "フォルダーが空かアップロードするファイルがありません",
+        "foundFiles": "${count}個のファイルが見つかりました、アップロード中...",
+        "success": "${count}個のファイルをアップロードしました (経過時間 ${elapsed}秒)",
+        "partialFailed": "${success}/${total}個のファイルをアップロード、${failed}個失敗 (経過時間 ${elapsed}秒)、詳細はコンソールを参照してください",
+        "failedFilesList": "失敗したファイルのリスト:\n${files}"
+    },
+    "workspaceInitFailed": "SiYuanワークスペースの初期化に失敗しました: ${error}"
+}

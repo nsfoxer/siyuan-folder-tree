@@ -1,20 +1,35 @@
 {
-    "addTopBarIcon": "Add a top bar icon by plugin",
-    "cancel": "Cancel",
-    "save": "Save",
-    "byeMenu": "Bye, Menu!",
-    "helloPlugin": "Hello, Plugin!",
-    "byePlugin": "Bye, Plugin!",
-    "showDialog": "Show dialog",
-    "removedData": "Data deleted",
-    "confirmRemove": "Confirm to delete the data in ${name}?",
-    "insertEmoji": "Insert Emoji",
-    "removeSpace": "Remove Space",
-    "getTab": "Print out all opened custom tabs in the debugger",
-    "name": "SiYuan",
-    "hello": {
-        "makesure": "Before using this template, please read the <a href=\"https://github.com/siyuan-note/plugin-sample\">offical sample</a>, make sure that you've known about the pipeline for plugin developing."
+    "pluginLoaded": "Plugin loaded",
+    "pluginUnloaded": "Plugin unloaded",
+    "uploadCanceled": "Upload canceled",
+    "error": {
+        "workspacePath": "Cannot upload files from SiYuan workspace directory",
+        "depthExceeded": "Directory depth exceeds limit (${depth}/${maxDepth})",
+        "pathTraversal": "Path contains illegal characters (..)",
+        "pathEmpty": "Path is empty",
+        "workspaceAncestor": "Cannot upload SiYuan workspace directory or its ancestors",
+        "workspaceFile": "Cannot upload files from SiYuan workspace directory",
+        "handleLink": "Failed to handle link",
+        "noBlockId": "Cannot get block ID",
+        "folderOnly": "Only folder upload is supported",
+        "fileNotExist": "File does not exist: ${fileName}",
+        "handleFolder": "Failed to handle folder",
+        "fileTooLarge": "File too large (${size}MB), skipped: ${fileName}",
+        "cannotRead": "Cannot read ${fileName}: ${error}",
+        "readFileFailed": "Failed to read file ${filePath}",
+        "batchUploadFailed": "Batch upload failed (batch ${batchNumber}): ${error}",
+        "uploadFailed": "Upload failed",
+        "insertFailed": "Failed to insert content",
+        "unknownTarget": "Unknown target"
     },
-    "hintTitle":"About",
-    "hintDesc":"<a href='https://github.com/siyuan-note/plugin-sample-vite-svelte'>plugin-sample-vite-svelte</a><br>@frostime<br>@88250<br>@zxkmm"
+    "upload": {
+        "label": "Upload local resource: ${fileName}",
+        "scanning": "Scanning folder...",
+        "emptyFolder": "Folder is empty or no files to upload",
+        "foundFiles": "Found ${count} files, uploading...",
+        "success": "Uploaded ${count} files (elapsed ${elapsed}s)",
+        "partialFailed": "Uploaded ${success}/${total} files, ${failed} failed (elapsed ${elapsed}s), see console for details",
+        "failedFilesList": "Failed files list:\n${files}"
+    },
+    "workspaceInitFailed": "Failed to initialize SiYuan workspace: ${error}"
 }

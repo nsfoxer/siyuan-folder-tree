@@ -1,5 +1,41 @@
 import {Plugin, showMessage, fetchSyncPost, IMenuBaseDetail} from "siyuan";
 
+interface II18n {
+    pluginLoaded: string;
+    pluginUnloaded: string;
+    uploadCanceled: string;
+    error: {
+        workspacePath: string;
+        depthExceeded: string;
+        pathTraversal: string;
+        pathEmpty: string;
+        workspaceAncestor: string;
+        workspaceFile: string;
+        handleLink: string;
+        noBlockId: string;
+        folderOnly: string;
+        fileNotExist: string;
+        handleFolder: string;
+        fileTooLarge: string;
+        cannotRead: string;
+        readFileFailed: string;
+        batchUploadFailed: string;
+        uploadFailed: string;
+        insertFailed: string;
+        unknownTarget: string;
+    };
+    upload: {
+        label: string;
+        scanning: string;
+        emptyFolder: string;
+        foundFiles: string;
+        success: string;
+        partialFailed: string;
+        failedFilesList: string;
+    };
+    workspaceInitFailed: string;
+}
+
 const BATCH_SIZE = 10;
 const ASSETS_DIR = "/assets/";
 const MAX_DEPTH = 9; // 最大目录深度
@@ -18,21 +54,19 @@ const HIDDEN_DIRS = new Set(['node_modules', '.git', '.vscode', '.idea']);
 interface TreeNode {
     name: string;
     type: "file" | "directory" | "symlink";
-    filePath?: string;  // 文件的完整路径（遍历时填充）
-    url?: string;       // 上传后的 URL（上传后填充）
+    filePath?: string;
+    url?: string;
     children?: TreeNode[];
     linkTarget?: string;
 }
 
 type FilterFn = (name: string) => boolean;
 
-// 默认文件过滤器：跳过隐藏文件和系统目录
 const defaultFilter: FilterFn = (name) => {
     if (name.startsWith('.') || name.startsWith('~')) return false;
     return !HIDDEN_DIRS.has(name);
 };
 
-// 缓存文件名，避免重复计算
 const fileNameCache = new Map<string, string>();
 function getFileName(filePath: string): string {
     let name = fileNameCache.get(filePath);
@@ -43,101 +77,69 @@ function getFileName(filePath: string): string {
     return name;
 }
 
-// 清理缓存（在操作完成后调用）
 function clearCache() {
     fileNameCache.clear();
 }
 
-// 工作区错误类
-class WorkspacePathError extends Error {
-    constructor() {
-        super('不允许上传思源工作目录下的文件');
-        this.name = 'WorkspacePathError';
-    }
-}
-
-// 深度超限错误类
-class DepthExceededError extends Error {
-    constructor(depth: number) {
-        super(`目录深度超过限制 (${depth}/${MAX_DEPTH})`);
-        this.name = 'DepthExceededError';
-    }
-}
-
 export default class NFPlugin extends Plugin{
+    // @ts-ignore
+    declare i18n: II18n;
 
     private siyuanWorkspaceDir: string | null = null;
-    private normalizedWorkspaceDir: string | null = null; // 缓存规范化的工作区路径
-    private uploadAbortController: AbortController | null = null; // 用于取消上传
-    private failedFiles: string[] = []; // 记录失败的文件
+    private normalizedWorkspaceDir: string | null = null;
+    private uploadAbortController: AbortController | null = null;
+    private failedFiles: string[] = [];
 
     async onload() {
-        showMessage(`[${this.name}]: 插件已加载`);
         this.eventBus.on("open-menu-link", this.handleOpenMenuLink.bind(this));
-        // 获取思源工作目录
         this.initSiyuanWorkspaceDir();
     }
 
-    // 初始化思源工作目录
     private initSiyuanWorkspaceDir(): void {
         try {
             if (window.siyuan?.config?.system?.workspaceDir) {
                 this.siyuanWorkspaceDir = window.siyuan.config.system.workspaceDir;
-                // 预先规范化工作区路径，避免重复计算 (P1 修复)
                 this.normalizedWorkspaceDir = path.normalize(this.siyuanWorkspaceDir);
                 console.log(this.siyuanWorkspaceDir);
                 console.log(this.normalizedWorkspaceDir);
             }
         } catch (err) {
-            console.warn("初始化思源工作目录失败:", err);
+            console.warn(this.i18n.workspaceInitFailed.replace('${error}', String(err)));
         }
     }
 
-    // 检查路径是否在思源工作目录下（仅检查子目录，不包括工作目录本身）
     private isInSiyuanWorkspace(filePath: string): boolean {
         if (!this.normalizedWorkspaceDir) return false;
-
         const normalizedPath = path.normalize(filePath);
-        // 只检查是否是工作目录的子目录
         return normalizedPath.startsWith(this.normalizedWorkspaceDir + path.sep);
     }
 
-    // 检查路径是否为思源工作目录的祖先目录（防止上传父目录或工作目录本身）
     private isAncestorOfSiyuanWorkspace(filePath: string): boolean {
         if (!this.normalizedWorkspaceDir) return false;
-
         const normalizedPath = path.normalize(filePath);
-        // 检查思源工作目录是否以 filePath 开头（即 filePath 是祖先目录）或相等
         return this.normalizedWorkspaceDir.startsWith(normalizedPath + path.sep) ||
                normalizedPath === this.normalizedWorkspaceDir;
     }
 
-    // 安全验证：检查路径是否包含遍历攻击 (../)
     private hasPathTraversal(filePath: string): boolean {
-        // 检查原始路径是否包含 ".."（在 path.normalize 处理之前）
         return filePath.includes('..');
     }
 
-    // 验证路径是否安全
     private validatePath(filePath: string): {valid: boolean, error?: string} {
-        // 检查路径遍历攻击
         if (this.hasPathTraversal(filePath)) {
-            return {valid: false, error: '路径包含非法字符 (..)'};
+            return {valid: false, error: this.i18n.error.pathTraversal};
         }
 
-        // 检查是否为空
         if (!filePath || filePath.trim() === '') {
-            return {valid: false, error: '路径为空'};
+            return {valid: false, error: this.i18n.error.pathEmpty};
         }
 
-        // 先检查是否为思源工作目录或其祖先目录（优先级更高）
         if (this.isAncestorOfSiyuanWorkspace(filePath)) {
-            return {valid: false, error: '不允许上传思源工作目录及其祖先目录'};
+            return {valid: false, error: this.i18n.error.workspaceAncestor};
         }
 
-        // 再检查是否在思源工作目录下
         if (this.isInSiyuanWorkspace(filePath)) {
-            return {valid: false, error: '不允许上传思源工作目录下的文件'};
+            return {valid: false, error: this.i18n.error.workspaceFile};
         }
 
         return {valid: true};
@@ -156,7 +158,7 @@ export default class NFPlugin extends Plugin{
             if (!this.isValidFilePath(filePath, element, menu)) return;
 
         } catch (err) {
-            this.logError("处理链接失败", err);
+            this.logError(this.i18n.error.handleLink, err);
         }
     };
 
@@ -165,29 +167,28 @@ export default class NFPlugin extends Plugin{
         const blockId = this.findBlockId(element);
 
         if (!blockId) {
-            this.logError("无法获取块 ID");
+            this.logError(this.i18n.error.noBlockId);
             return false;
         }
         if (!this.isDirectory(filePath)) {
-            this.logError(`[${this.name}]: 仅支持文件夹上传`);
+            this.logError(this.i18n.error.folderOnly);
             return false;
         }
 
         if (!fs.existsSync(filePath)) {
-            this.logError(`[${this.name}]: 文件不存在: ${fileName}`);
+            this.logError(this.i18n.error.fileNotExist.replace('${fileName}', fileName));
             return false;
         }
 
-        // 安全验证：检查路径是否安全
         const validation = this.validatePath(filePath);
         if (!validation.valid) {
-            this.logError(`[${this.name}]: ${validation.error}`);
+            this.logError(validation.error);
             return false;
         }
 
         menu.addItem({
             icon: "iconUpload",
-            label: `上传本地资源: ${fileName}`,
+            label: this.i18n.upload.label.replace('${fileName}', fileName),
             click: () => this.uploadAndInsert(filePath, blockId),
         });
 
@@ -206,51 +207,50 @@ export default class NFPlugin extends Plugin{
 
     private async uploadAndInsert(dirPath: string, blockId: string) {
         const startTime = Date.now();
-        clearCache(); // 清理缓存
-        this.failedFiles = []; // 重置失败文件列表
-        this.uploadAbortController = new AbortController(); // 创建新的 AbortController
+        clearCache();
+        this.failedFiles = [];
+        this.uploadAbortController = new AbortController();
 
         try {
-            // 第一步：遍历目录树（不上传）
-            showMessage(`[${this.name}]: 正在扫描文件夹...`);
+            showMessage(`[${this.name}]: ${this.i18n.upload.scanning}`);
             const {tree, filePaths} = await this.buildDirectoryTree(dirPath, 0);
 
             if (filePaths.length === 0) {
-                showMessage(`[${this.name}]: 文件夹为空或无可上传文件`);
+                showMessage(`[${this.name}]: ${this.i18n.upload.emptyFolder}`);
                 return;
             }
 
-            // 第二步：统一上传所有文件
-            showMessage(`[${this.name}]: 发现 ${filePaths.length} 个文件，正在上传...`);
+            showMessage(`[${this.name}]: ${this.i18n.upload.foundFiles.replace('${count}', String(filePaths.length))}`);
             const urlMap = await this.uploadFilesInBatches(filePaths);
 
-            // 第三步：将 URL 回填到树结构
             this.fillTreeUrls(tree, urlMap);
 
-            // 第四步：插入 markdown
             await this.insertMarkdown(tree, dirPath, blockId);
 
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-            // 显示上传结果
             if (this.failedFiles.length > 0) {
-                console.error(`[${this.name}] 失败文件列表:\n${this.failedFiles.map(f => `  - ${f}`).join('\n')}`);
-                showMessage(`[${this.name}]: 已上传 ${filePaths.length - this.failedFiles.length}/${filePaths.length} 个文件，失败 ${this.failedFiles.length} 个 (耗时 ${elapsed}s)，详见控制台`);
+                const failedList = this.failedFiles.map(f => `  - ${f}`).join('\n');
+                console.error(`[${this.name}] ${this.i18n.upload.failedFilesList.replace('${files}', failedList)}`);
+                showMessage(`[${this.name}]: ${this.i18n.upload.partialFailed
+                    .replace('${success}', String(filePaths.length - this.failedFiles.length))
+                    .replace('${total}', String(filePaths.length))
+                    .replace('${failed}', String(this.failedFiles.length))
+                    .replace('${elapsed}', elapsed)
+                }`);
             } else {
-                showMessage(`[${this.name}]: 已上传 ${filePaths.length} 个文件 (耗时 ${elapsed}s)`);
+                showMessage(`[${this.name}]: ${this.i18n.upload.success
+                    .replace('${count}', String(filePaths.length))
+                    .replace('${elapsed}', elapsed)
+                }`);
             }
 
         } catch (err) {
-            if (err instanceof DepthExceededError) {
-                showMessage(`[${this.name}]: ${err.message}`);
-            } else {
-                this.logError("处理文件夹失败", err);
-                const errorMsg = this.getErrorMessage(err);
-                showMessage(`[${this.name}]: ${errorMsg}`);
-            }
+            const errorMsg = this.getErrorMessage(err);
+            showMessage(`[${this.name}]: ${errorMsg}`);
         } finally {
-            clearCache(); // 确保清理缓存
-            this.uploadAbortController = null; // 清理 AbortController
+            clearCache();
+            this.uploadAbortController = null;
         }
     }
 
@@ -262,19 +262,17 @@ export default class NFPlugin extends Plugin{
         }
     }
 
-    // 合并深度检查和树构建，只遍历一次目录树（不进行上传）
-    // visitedInodes: 记录已访问的 inode（dev-ino），用于检测符号链接循环和目录硬链接循环
-    // 返回值: {tree: 树结构, filePaths: 所有文件的完整路径列表}
     private async buildDirectoryTree(
         dirPath: string,
         currentDepth: number
     ): Promise<{tree: TreeNode[], filePaths: string[]}> {
-        // 检查深度限制
         if (currentDepth >= MAX_DEPTH) {
-            throw new DepthExceededError(currentDepth + 1);
+            throw new Error(this.i18n.error.depthExceeded
+                .replace('${depth}', String(currentDepth + 1))
+                .replace('${maxDepth}', String(MAX_DEPTH))
+            );
         }
 
-        // 检查取消信号 - 本地处理，直接空结果
         if (this.uploadAbortController?.signal.aborted) {
             return {tree: [], filePaths: []};
         }
@@ -284,7 +282,6 @@ export default class NFPlugin extends Plugin{
         const filePaths: string[] = [];
         const subDirs: Array<{name: string, path: string}> = [];
 
-        // 分类收集文件和目录
         for (const entry of entries) {
             if (!defaultFilter(entry.name)) continue;
 
@@ -294,55 +291,52 @@ export default class NFPlugin extends Plugin{
                 if (entry.isFile()) {
                     const size = fs.statSync(fullPath).size;
                     if (size > MAX_FILE_SIZE) {
-                        this.logWarn(`文件过大 (${(size / 1024 / 1024).toFixed(1)}MB)，已跳过: ${entry.name}`);
+                        const sizeMB = (size / 1024 / 1024).toFixed(1);
+                        this.logWarn(this.i18n.error.fileTooLarge
+                            .replace('${size}', sizeMB)
+                            .replace('${fileName}', entry.name)
+                        );
                         this.failedFiles.push(fullPath);
                         continue;
                     }
-                    // 收集文件路径，不立即上传
                     filePaths.push(fullPath);
-                    // 创建文件节点（暂时没有 URL，上传后回填）
                     nodes.push({name: entry.name, type: "file", filePath: fullPath});
                 } else if (entry.isSymbolicLink()) {
-                    // 链接 则跳过
                     continue;
                 } else if (entry.isDirectory()) {
-                    // 再检查深度限制，超限则直接抛出异常
                     if (currentDepth + 1 >= MAX_DEPTH) {
-                        throw new DepthExceededError(currentDepth + 2);
+                        throw new Error(this.i18n.error.depthExceeded
+                            .replace('${depth}', String(currentDepth + 2))
+                            .replace('${maxDepth}', String(MAX_DEPTH))
+                        );
                     }
 
                     subDirs.push({name: entry.name, path: fullPath});
                 }
             } catch (err) {
-                // 深度超限错误需要重新抛出
-                if (err instanceof DepthExceededError) {
-                    throw err;
-                }
                 this.failedFiles.push(fullPath);
-                this.logWarn(`无法读取 ${entry.name}: ${this.getErrorMessage(err)}`);
+                this.logWarn(this.i18n.error.cannotRead
+                    .replace('${fileName}', entry.name)
+                    .replace('${error}', this.getErrorMessage(err))
+                );
             }
         }
 
-        // 使用受限并发处理子目录 (3个并发)
         const MAX_CONCURRENT_SUBDIRS = 3;
         let index = 0;
 
-        // 使用箭头函数保持 this 绑定
         const processNext = async (): Promise<void> => {
             while (index < subDirs.length) {
-                // 检查取消信号
                 if (this.uploadAbortController?.signal.aborted) {
                     break;
                 }
                 const subDir = subDirs[index++];
                 const result = await this.buildDirectoryTree(subDir.path, currentDepth + 1);
-                // 将子目录的树和文件路径合并
                 nodes.push({name: subDir.name, type: "directory", children: result.tree});
                 filePaths.push(...result.filePaths);
             }
         };
 
-        // 启动并发任务
         const workers = Array(Math.min(MAX_CONCURRENT_SUBDIRS, subDirs.length))
             .fill(null)
             .map(() => processNext());
@@ -352,20 +346,16 @@ export default class NFPlugin extends Plugin{
         return {tree: nodes, filePaths};
     }
 
-    // 将上传后的 URL 回填到树结构中
     private fillTreeUrls(tree: TreeNode[], urlMap: Map<string, string>): void {
         for (const node of tree) {
             if (node.type === "file" && node.filePath) {
-                // 从 urlMap 中获取 URL 并回填
                 const url = urlMap.get(node.filePath);
                 if (url) {
                     node.url = url;
                 } else {
-                    // 上传失败，移除该节点
-                    node.filePath = undefined;  // 标记为无效
+                    node.filePath = undefined;
                 }
             } else if (node.type === "directory" && node.children) {
-                // 递归处理子目录
                 this.fillTreeUrls(node.children, urlMap);
             }
         }
@@ -374,26 +364,21 @@ export default class NFPlugin extends Plugin{
     private async uploadFilesInBatches(filePaths: string[]): Promise<Map<string, string>> {
         const allResults = new Map<string, string>();
 
-        // 将文件分批
         const batches: string[][] = [];
         for (let i = 0; i < filePaths.length; i += BATCH_SIZE) {
             batches.push(filePaths.slice(i, i + BATCH_SIZE));
         }
 
-        // 串行上传每批
         for (let i = 0; i < batches.length; i++) {
-            // 检查取消信号
             if (this.uploadAbortController?.signal.aborted) {
                 break;
             }
 
             const batchPaths = batches[i];
 
-            // 检测批次内同名文件冲突，生成重命名映射
             const renameMap = this.generateRenameMap(batchPaths);
             const batchResults = await this.uploadSingleBatch(batchPaths, renameMap, i + 1);
 
-            // 使用重命名后的文件名查找 URL
             for (const filePath of batchPaths) {
                 const uploadedName = renameMap.get(filePath) || getFileName(filePath);
                 const url = batchResults.get(uploadedName);
@@ -409,7 +394,6 @@ export default class NFPlugin extends Plugin{
         return allResults;
     }
 
-    // 检测批次内同名文件，生成重命名映射
     private generateRenameMap(filePaths: string[]): Map<string, string> {
         const nameCountMap = new Map<string, number>();
         const renameMap = new Map<string, string>();
@@ -420,7 +404,6 @@ export default class NFPlugin extends Plugin{
             nameCountMap.set(originalName, count + 1);
 
             if (count > 0) {
-                // 同名文件，生成唯一文件名
                 const ext = path.extname(originalName);
                 const baseName = path.basename(originalName, ext);
                 const uniqueName = `${baseName}_${count}${ext}`;
@@ -440,7 +423,6 @@ export default class NFPlugin extends Plugin{
         const formData = new FormData();
         formData.append("assetsDirPath", ASSETS_DIR);
 
-        // 并发读取所有文件（限制并发数以降低内存占用）
         const MAX_CONCURRENT_READS = 5;
         const results: Array<{file: File | null, success: boolean}> = [];
 
@@ -449,18 +431,16 @@ export default class NFPlugin extends Plugin{
 
             const batchPromises = batch.map(async (filePath) => {
                 try {
-                    // 检查取消信号
                     if (this.uploadAbortController?.signal.aborted) {
                         return {file: null, success: false};
                     }
 
                     const buffer = await fs.promises.readFile(filePath);
-                    // 使用重命名后的文件名（如果有冲突）
                     const uploadName = renameMap.get(filePath) || getFileName(filePath);
                     return {file: new File([buffer], uploadName), success: true};
                 } catch {
                     this.failedFiles.push(filePath);
-                    this.logWarn(`读取文件失败 ${filePath}`);
+                    this.logWarn(this.i18n.error.readFileFailed.replace('${filePath}', filePath));
                     return {file: null, success: false};
                 }
             });
@@ -468,7 +448,6 @@ export default class NFPlugin extends Plugin{
             results.push(...await Promise.all(batchPromises));
         }
 
-        // 将成功读取的文件添加到 FormData
         for (const result of results) {
             if (result.success && result.file) {
                 formData.append("file[]", result.file);
@@ -490,15 +469,21 @@ export default class NFPlugin extends Plugin{
             const result = await response.json();
 
             if (result.code !== 0) {
-                this.logError(`批量上传失败 (批次 ${batchNumber}): ${result.msg || "上传失败"}`);
-                return new Map(); // 本地处理错误，返回空 Map
+                this.logError(this.i18n.error.batchUploadFailed
+                    .replace('${batchNumber}', String(batchNumber))
+                    .replace('${error}', result.msg || this.i18n.error.uploadFailed)
+                );
+                return new Map();
             }
 
             return this.parseUploadResponse(result.data?.succMap || {});
 
         } catch (err) {
-            this.logError(`批量上传失败 (批次 ${batchNumber})`, err);
-            return new Map(); // 本地处理错误，返回空 Map
+            this.logError(this.i18n.error.batchUploadFailed
+                .replace('${batchNumber}', String(batchNumber))
+                .replace('${error}', this.getErrorMessage(err))
+            );
+            return new Map();
         }
     }
 
@@ -530,7 +515,6 @@ export default class NFPlugin extends Plugin{
         return lines.join("\n");
     }
 
-    // 优化: 直接传入 lines 数组引用，避免展开运算符创建临时数组
     private renderNode(node: TreeNode, indent: number, lines: string[]): void {
         const prefix = "  ".repeat(indent + 1) + "- ";
 
@@ -540,7 +524,7 @@ export default class NFPlugin extends Plugin{
                 lines.push(this.generateTreeMarkdown(node.children, "", indent + 1));
             }
         } else if (node.type === "symlink") {
-            const target = node.linkTarget || "未知目标";
+            const target = node.linkTarget || this.i18n.error.unknownTarget;
             lines.push(`${prefix}🔗 ${node.name} → \`${target}\``);
         } else {
             const link = node.url ? `[${node.name}](${node.url})` : `\`${node.name}\``;
@@ -556,14 +540,11 @@ export default class NFPlugin extends Plugin{
                 previousID: blockId,
             });
         } catch (err) {
-            this.logError("插入内容失ss败", err);
-            // 本地处理错误，不再抛出异常
+            this.logError(this.i18n.error.insertFailed, err);
         }
     }
 
     private getErrorMessage(err: unknown): string {
-        if (err instanceof WorkspacePathError) return err.message;
-        if (err instanceof DepthExceededError) return err.message;
         if (err instanceof Error) return err.message;
         return String(err);
     }
@@ -578,20 +559,17 @@ export default class NFPlugin extends Plugin{
     }
 
     async onunload() {
-        // 取消正在进行的上传
         this.cancelUpload();
 
         this.eventBus.off("open-menu-link", this.handleOpenMenuLink);
-        showMessage(`[${this.name}]: 插件已卸载`);
         clearCache();
     }
 
-    // 公开方法：取消当前上传
     public cancelUpload(): void {
         if (this.uploadAbortController) {
             this.uploadAbortController.abort();
             this.uploadAbortController = null;
-            showMessage(`[${this.name}]: 上传已取消`);
+            showMessage(`[${this.name}]: ${this.i18n.uploadCanceled}`);
         }
     }
 }

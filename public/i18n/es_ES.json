@@ -1,0 +1,35 @@
+{
+    "pluginLoaded": "Complemento cargado",
+    "pluginUnloaded": "Complemento descargado",
+    "uploadCanceled": "Carga cancelada",
+    "error": {
+        "workspacePath": "No se pueden cargar archivos del espacio de trabajo de SiYuan",
+        "depthExceeded": "La profundidad del directorio excede el límite (${depth}/${maxDepth})",
+        "pathTraversal": "La ruta contiene caracteres ilegales (..)",
+        "pathEmpty": "La ruta está vacía",
+        "workspaceAncestor": "No se puede cargar el espacio de trabajo de SiYuan o sus ancestros",
+        "workspaceFile": "No se pueden cargar archivos del espacio de trabajo de SiYuan",
+        "handleLink": "Error al procesar el enlace",
+        "noBlockId": "No se puede obtener el ID del bloque",
+        "folderOnly": "Solo se admite la carga de carpetas",
+        "fileNotExist": "El archivo no existe: ${fileName}",
+        "handleFolder": "Error al procesar la carpeta",
+        "fileTooLarge": "Archivo demasiado grande (${size}MB), omitido: ${fileName}",
+        "cannotRead": "No se puede leer ${fileName}: ${error}",
+        "readFileFailed": "Error al leer el archivo ${filePath}",
+        "batchUploadFailed": "Error en la carga por lotes (lote ${batchNumber}): ${error}",
+        "uploadFailed": "Error en la carga",
+        "insertFailed": "Error al insertar contenido",
+        "unknownTarget": "Objetivo desconocido"
+    },
+    "upload": {
+        "label": "Cargar recurso local: ${fileName}",
+        "scanning": "Escaneando carpeta...",
+        "emptyFolder": "La carpeta está vacía o no hay archivos para cargar",
+        "foundFiles": "Se encontraron ${count} archivos, cargando...",
+        "success": "Se cargaron ${count} archivos (tiempo transcurrido ${elapsed}s)",
+        "partialFailed": "Se cargaron ${success}/${total} archivos, ${failed} fallaron (tiempo transcurrido ${elapsed}s), consulte la consola para obtener detalles",
+        "failedFilesList": "Lista de archivos fallidos:\n${files}"
+    },
+    "workspaceInitFailed": "Error al inicializar el espacio de trabajo de SiYuan: ${error}"
+}

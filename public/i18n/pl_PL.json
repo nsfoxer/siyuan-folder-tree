@@ -1,0 +1,35 @@
+{
+    "pluginLoaded": "Wtyczka załadowana",
+    "pluginUnloaded": "Wtyczka wyładowana",
+    "uploadCanceled": "Przesyłanie anulowane",
+    "error": {
+        "workspacePath": "Nie można przesyłać plików z obszaru roboczego SiYuan",
+        "depthExceeded": "Głębo katalogu przekracza limit (${depth}/${maxDepth})",
+        "pathTraversal": "Ścieżka zawiera niedozwolone znaki (..)",
+        "pathEmpty": "Ścieżka jest pusta",
+        "workspaceAncestor": "Nie można przesłać obszaru roboczego SiYuan ani jego przodków",
+        "workspaceFile": "Nie można przesyłać plików z obszaru roboczego SiYuan",
+        "handleLink": "Nie udało się obsłużyć linku",
+        "noBlockId": "Nie można uzyskać identyfikatora bloku",
+        "folderOnly": "Obsługiwane jest tylko przesyłanie folderów",
+        "fileNotExist": "Plik nie istnieje: ${fileName}",
+        "handleFolder": "Nie udało się obsłużyć folderu",
+        "fileTooLarge": "Plik jest za duży (${size}MB), pominięto: ${fileName}",
+        "cannotRead": "Nie można odczytać ${fileName}: ${error}",
+        "readFileFailed": "Nie udało się odczytać pliku ${filePath}",
+        "batchUploadFailed": "Nie udało się przesłać partii (partia ${batchNumber}): ${error}",
+        "uploadFailed": "Przesyłanie nie powiodło się",
+        "insertFailed": "Nie udało się wstawić zawartości",
+        "unknownTarget": "Nieznany cel"
+    },
+    "upload": {
+        "label": "Prześlij zasób lokalny: ${fileName}",
+        "scanning": "Skanowanie folderu...",
+        "emptyFolder": "Folder jest pusty lub brak plików do przesłania",
+        "foundFiles": "Znaleziono ${count} plików, przesyłanie...",
+        "success": "Przesłano ${count} plików (czas upłynął ${elapsed}s)",
+        "partialFailed": "Przesłano ${success}/${total} plików, ${failed} nie powiodło się (czas upłynął ${elapsed}s), zobacz konsolę, aby uzyskać szczegóły",
+        "failedFilesList": "Lista nieudanych plików:\n${files}"
+    },
+    "workspaceInitFailed": "Nie udało się zainicjować obszaru roboczego SiYuan: ${error}"
+}

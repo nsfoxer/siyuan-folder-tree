@@ -1,0 +1,35 @@
+{
+    "pluginLoaded": "Plugin geladen",
+    "pluginUnloaded": "Plugin entladen",
+    "uploadCanceled": "Upload abgebrochen",
+    "error": {
+        "workspacePath": "Dateien aus dem SiYuan-Arbeitsbereich dürfen nicht hochgeladen werden",
+        "depthExceeded": "Verzeichnistiefe überschreitet das Limit (${depth}/${maxDepth})",
+        "pathTraversal": "Pfad enthält ungültige Zeichen (..)",
+        "pathEmpty": "Pfad ist leer",
+        "workspaceAncestor": "SiYuan-Arbeitsbereich oder dessen Vorgänger dürfen nicht hochgeladen werden",
+        "workspaceFile": "Dateien aus dem SiYuan-Arbeitsbereich dürfen nicht hochgeladen werden",
+        "handleLink": "Fehler beim Verarbeiten des Links",
+        "noBlockId": "Block-ID kann nicht abgerufen werden",
+        "folderOnly": "Nur Ordner-Upload unterstützt",
+        "fileNotExist": "Datei existiert nicht: ${fileName}",
+        "handleFolder": "Fehler beim Verarbeiten des Ordners",
+        "fileTooLarge": "Datei zu groß (${size}MB), übersprungen: ${fileName}",
+        "cannotRead": "${fileName} kann nicht gelesen werden: ${error}",
+        "readFileFailed": "Fehler beim Lesen der Datei ${filePath}",
+        "batchUploadFailed": "Batch-Upload fehlgeschlagen (Batch ${batchNumber}): ${error}",
+        "uploadFailed": "Upload fehlgeschlagen",
+        "insertFailed": "Fehler beim Einfügen von Inhalten",
+        "unknownTarget": "Unbekanntes Ziel"
+    },
+    "upload": {
+        "label": "Lokale Ressource hochladen: ${fileName}",
+        "scanning": "Ordner wird gescannt...",
+        "emptyFolder": "Ordner ist leer oder keine Dateien zum Hochladen",
+        "foundFiles": "${count} Dateien gefunden, Upload läuft...",
+        "success": "${count} Dateien hochgeladen (verstrichene ${elapsed}s)",
+        "partialFailed": "${success}/${total} Dateien hochgeladen, ${failed} fehlgeschlagen (verstrichene ${elapsed}s), siehe Konsole für Details",
+        "failedFilesList": "Liste der fehlgeschlagenen Dateien:\n${files}"
+    },
+    "workspaceInitFailed": "Fehler beim Initialisieren des SiYuan-Arbeitsbereichs: ${error}"
+}

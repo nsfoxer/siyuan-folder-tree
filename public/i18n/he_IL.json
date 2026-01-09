@@ -1,0 +1,35 @@
+{
+    "pluginLoaded": "התוסף נטען",
+    "pluginUnloaded": "התוסף נוטרל",
+    "uploadCanceled": "ההעלאה בוטלה",
+    "error": {
+        "workspacePath": "אי אפשר להעלות קבצים מתיקיית עבודה של SiYuan",
+        "depthExceeded": "עומק התיקייה חורג מהמגבלה (${depth}/${maxDepth})",
+        "pathTraversal": "הנתיב מכיל תווים לא חוקיים (..)",
+        "pathEmpty": "הנתיב ריק",
+        "workspaceAncestor": "אי אפשר להעלות את תיקיית העבודה של SiYuan או את אבותיה",
+        "workspaceFile": "אי אפשר להעלות קבצים מתיקיית עבודה של SiYuan",
+        "handleLink": "טיפול בקישור נכשל",
+        "noBlockId": "לא ניתן לקבל מזהה בלוק",
+        "folderOnly": "נתמך רק העלאת תיקיות",
+        "fileNotExist": "הקובץ לא קיים: ${fileName}",
+        "handleFolder": "טיפול בתיקייה נכשל",
+        "fileTooLarge": "קובץ גדול מדי (${size}MB), דולג: ${fileName}",
+        "cannotRead": "לא ניתן לקרוא ${fileName}: ${error}",
+        "readFileFailed": "קריאת הקובץ נכשלה ${filePath}",
+        "batchUploadFailed": "העלאה אצווה נכשלה (אצווה ${batchNumber}): ${error}",
+        "uploadFailed": "העלאה נכשלה",
+        "insertFailed": "הוספת תוכן נכשלה",
+        "unknownTarget": "יעד לא ידוע"
+    },
+    "upload": {
+        "label": "העלאת משאב מקומי: ${fileName}",
+        "scanning": "סורק תיקייה...",
+        "emptyFolder": "התיקייה ריקה או אין קבצים להעלאה",
+        "foundFiles": "נמצאו ${count} קבצים, מעלה...",
+        "success": "הועלו ${count} קבצים (זמן שחלף ${elapsed}s)",
+        "partialFailed": "הועלו ${success}/${total} קבצים, ${failed} נכשלו (זמן שחלף ${elapsed}s), ראה קונסולה לפרטים",
+        "failedFilesList": "רשימת קבצים שנכשלו:\n${files}"
+    },
+    "workspaceInitFailed": "אתחול תיקיית עבודה של SiYuan נכשל: ${error}"
+}
