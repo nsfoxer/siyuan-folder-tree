@@ -85,6 +85,8 @@ export default class NFPlugin extends Plugin{
                 this.siyuanWorkspaceDir = window.siyuan.config.system.workspaceDir;
                 // 预先规范化工作区路径，避免重复计算 (P1 修复)
                 this.normalizedWorkspaceDir = path.normalize(this.siyuanWorkspaceDir);
+                console.log(this.siyuanWorkspaceDir);
+                console.log(this.normalizedWorkspaceDir);
             }
         } catch (err) {
             console.warn("初始化思源工作目录失败:", err);
@@ -141,30 +143,6 @@ export default class NFPlugin extends Plugin{
         return {valid: true};
     }
 
-    // 安全检查符号链接目标
-    private isSymlinkSafe(target: string, sourceDir: string): boolean {
-        try {
-            const resolvedTarget = path.resolve(sourceDir, target);
-            const normalizedTarget = path.normalize(resolvedTarget);
-
-            // 不允许指向思源工作目录
-            if (this.isInSiyuanWorkspace(normalizedTarget)) {
-                return false;
-            }
-
-            // 不允许指向系统敏感目录
-            const sensitiveDirs = ['/etc', '/root', '/home', 'C:\\Windows', 'C:\\ProgramData'];
-            for (const sensitive of sensitiveDirs) {
-                if (normalizedTarget.startsWith(sensitive)) {
-                    return false;
-                }
-            }
-
-            return true;
-        } catch {
-            return false;
-        }
-    }
 
     private handleOpenMenuLink = async ({detail}: {detail: IMenuBaseDetail}) => {
         const {menu, element} = detail;
@@ -190,16 +168,20 @@ export default class NFPlugin extends Plugin{
             this.logError("无法获取块 ID");
             return false;
         }
+        if (!this.isDirectory(filePath)) {
+            this.logError(`[${this.name}]: 仅支持文件夹上传`);
+            return false;
+        }
 
         if (!fs.existsSync(filePath)) {
-            showMessage(`[${this.name}]: 文件不存在: ${fileName}`);
+            this.logError(`[${this.name}]: 文件不存在: ${fileName}`);
             return false;
         }
 
         // 安全验证：检查路径是否安全
         const validation = this.validatePath(filePath);
         if (!validation.valid) {
-            showMessage(`[${this.name}]: ${validation.error}`);
+            this.logError(`[${this.name}]: ${validation.error}`);
             return false;
         }
 
@@ -229,21 +211,9 @@ export default class NFPlugin extends Plugin{
         this.uploadAbortController = new AbortController(); // 创建新的 AbortController
 
         try {
-            // 安全验证
-            const validation = this.validatePath(dirPath);
-            if (!validation.valid) {
-                showMessage(`[${this.name}]: ${validation.error}`);
-                return;
-            }
-
-            if (!this.isDirectory(dirPath)) {
-                showMessage(`[${this.name}]: 仅支持文件夹上传`);
-                return;
-            }
-
             // 第一步：遍历目录树（不上传）
             showMessage(`[${this.name}]: 正在扫描文件夹...`);
-            const {tree, filePaths} = await this.buildDirectoryTree(dirPath, 0, new Set());
+            const {tree, filePaths} = await this.buildDirectoryTree(dirPath, 0);
 
             if (filePaths.length === 0) {
                 showMessage(`[${this.name}]: 文件夹为空或无可上传文件`);
@@ -264,7 +234,8 @@ export default class NFPlugin extends Plugin{
 
             // 显示上传结果
             if (this.failedFiles.length > 0) {
-                showMessage(`[${this.name}]: 已上传 ${filePaths.length - this.failedFiles.length}/${filePaths.length} 个文件，失败 ${this.failedFiles.length} 个 (耗时 ${elapsed}s)`);
+                console.error(`[${this.name}] 失败文件列表:\n${this.failedFiles.map(f => `  - ${f}`).join('\n')}`);
+                showMessage(`[${this.name}]: 已上传 ${filePaths.length - this.failedFiles.length}/${filePaths.length} 个文件，失败 ${this.failedFiles.length} 个 (耗时 ${elapsed}s)，详见控制台`);
             } else {
                 showMessage(`[${this.name}]: 已上传 ${filePaths.length} 个文件 (耗时 ${elapsed}s)`);
             }
@@ -296,8 +267,7 @@ export default class NFPlugin extends Plugin{
     // 返回值: {tree: 树结构, filePaths: 所有文件的完整路径列表}
     private async buildDirectoryTree(
         dirPath: string,
-        currentDepth: number,
-        visitedInodes: Set<string>
+        currentDepth: number
     ): Promise<{tree: TreeNode[], filePaths: string[]}> {
         // 检查深度限制
         if (currentDepth >= MAX_DEPTH) {
@@ -314,7 +284,7 @@ export default class NFPlugin extends Plugin{
         const filePaths: string[] = [];
         const subDirs: Array<{name: string, path: string}> = [];
 
-        // 分类收集文件和目录（P0优化：普通文件跳过冗余lstat）
+        // 分类收集文件和目录
         for (const entry of entries) {
             if (!defaultFilter(entry.name)) continue;
 
@@ -322,7 +292,6 @@ export default class NFPlugin extends Plugin{
 
             try {
                 if (entry.isFile()) {
-                    // P0: 普通文件使用同步 stat，无需异步 lstat（entry.isFile() 已确认类型）
                     const size = fs.statSync(fullPath).size;
                     if (size > MAX_FILE_SIZE) {
                         this.logWarn(`文件过大 (${(size / 1024 / 1024).toFixed(1)}MB)，已跳过: ${entry.name}`);
@@ -334,47 +303,14 @@ export default class NFPlugin extends Plugin{
                     // 创建文件节点（暂时没有 URL，上传后回填）
                     nodes.push({name: entry.name, type: "file", filePath: fullPath});
                 } else if (entry.isSymbolicLink()) {
-                    // P0: 符号链接需要 lstat 获取 inode 进行循环检测
-                    const lstat = await fs.promises.lstat(fullPath);
-                    const inodeId = `${lstat.dev}-${lstat.ino}`;
-
-                    if (visitedInodes.has(inodeId)) {
-                        this.logWarn(`检测到循环符号链接，已跳过: ${entry.name}`);
-                        continue;
-                    }
-
-                    const target = await fs.promises.readlink(fullPath);
-
-                    if (!this.isSymlinkSafe(target, dirPath)) {
-                        this.logWarn(`符号链接指向不安全位置，已跳过: ${entry.name}`);
-                        nodes.push({name: entry.name, type: "symlink", linkTarget: target});
-                        continue;
-                    }
-
-                    visitedInodes.add(inodeId);
-                    nodes.push({name: entry.name, type: "symlink", linkTarget: target});
+                    // 链接 则跳过
+                    continue;
                 } else if (entry.isDirectory()) {
-                    // P0: 目录需要 lstat 获取 inode 进行循环检测
-                    const lstat = await fs.promises.lstat(fullPath);
-                    const inodeId = `${lstat.dev}-${lstat.ino}`;
-
-                    if (visitedInodes.has(inodeId)) {
-                        this.logWarn(`检测到循环目录引用，已跳过: ${entry.name}`);
-                        continue;
-                    }
-
-                    // 优先检查路径安全（是否在思源工作目录内）
-                    if (this.isInSiyuanWorkspace(fullPath)) {
-                        this.logWarn(`跳过思源工作目录下的文件夹: ${entry.name}`);
-                        continue;
-                    }
-
                     // 再检查深度限制，超限则直接抛出异常
                     if (currentDepth + 1 >= MAX_DEPTH) {
                         throw new DepthExceededError(currentDepth + 2);
                     }
 
-                    visitedInodes.add(inodeId);
                     subDirs.push({name: entry.name, path: fullPath});
                 }
             } catch (err) {
@@ -399,7 +335,7 @@ export default class NFPlugin extends Plugin{
                     break;
                 }
                 const subDir = subDirs[index++];
-                const result = await this.buildDirectoryTree(subDir.path, currentDepth + 1, visitedInodes);
+                const result = await this.buildDirectoryTree(subDir.path, currentDepth + 1);
                 // 将子目录的树和文件路径合并
                 nodes.push({name: subDir.name, type: "directory", children: result.tree});
                 filePaths.push(...result.filePaths);
@@ -620,7 +556,7 @@ export default class NFPlugin extends Plugin{
                 previousID: blockId,
             });
         } catch (err) {
-            this.logError("插入内容失败", err);
+            this.logError("插入内容失ss败", err);
             // 本地处理错误，不再抛出异常
         }
     }
