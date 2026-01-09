@@ -100,8 +100,6 @@ export default class NFPlugin extends Plugin{
             if (window.siyuan?.config?.system?.workspaceDir) {
                 this.siyuanWorkspaceDir = window.siyuan.config.system.workspaceDir;
                 this.normalizedWorkspaceDir = path.normalize(this.siyuanWorkspaceDir);
-                console.log(this.siyuanWorkspaceDir);
-                console.log(this.normalizedWorkspaceDir);
             }
         } catch (err) {
             console.warn(this.i18n.workspaceInitFailed.replace('${error}', String(err)));
