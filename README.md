@@ -1,6 +1,6 @@
 # Local Folder Uploader
 
-[简体中文](./README_zh_CN.md)
+[简体中文](https://github.com/nsfoxer/siyuan-folder-tree/blob/main/README_zh_CN.md)
 
 > SiYuan Note Plugin - Right-click on file:// links to upload local folders to SiYuan and automatically generate directory tree Markdown
 
@@ -96,7 +96,7 @@ Automatically skips the following common system directories:
 | Windows | ✅ |
 | Linux | ✅ |
 | macOS | ✅ |
-| Docker | ✅ |
+| Docker | ❌ |
 | Mobile | ❌ (Requires Node.js fs module) |
 
 | Frontend | Status |
@@ -154,4 +154,4 @@ Issues and Pull Requests are welcome!
 ## 📮 Contact
 
 - Author: nsfoxer
-- Repository: https://github.com/foxer/siyuan-folder-upload
+- Repository: https://github.com/foxer/siyuan-folder-tree

@@ -1,6 +1,6 @@
 # 本地文件夹上传
 
-[English](./README.md)
+[English](https://github.com/nsfoxer/siyuan-folder-tree/blob/main/README.md)
 
 > 思源笔记插件 - 右键点击 file:// 链接上传本地文件夹到思源笔记，自动生成目录树 Markdown
 
@@ -96,7 +96,7 @@
 | Windows | ✅ |
 | Linux | ✅ |
 | macOS | ✅ |
-| Docker | ✅ |
+| Docker | ❌ |
 | 移动端 | ❌ (依赖 Node.js fs 模块) |
 
 | 前端 | 支持情况 |
@@ -154,4 +154,4 @@ MIT License
 ## 📮 联系方式
 
 - 作者：nsfoxer
-- 仓库：https://github.com/foxer/siyuan-folder-upload
+- 仓库：https://github.com/foxer/siyuan-folder-tree
