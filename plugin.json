@@ -2,7 +2,7 @@
   "name": "siyuan-folder-tree",
   "author": "nsfoxer",
   "url": "https://github.com/nsfoxer/siyuan-folder-tree",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "minAppVersion": "3.2.1",
   "disabledInPublish": true,
   "backends": [
