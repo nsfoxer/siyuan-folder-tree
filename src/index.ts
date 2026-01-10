@@ -1,5 +1,6 @@
 import {Plugin, showMessage, fetchSyncPost, IMenuBaseDetail} from "siyuan";
 
+// 国际化接口定义
 interface II18n {
     pluginLoaded: string;
     pluginUnloaded: string;
@@ -36,12 +37,12 @@ interface II18n {
     workspaceInitFailed: string;
 }
 
-const BATCH_SIZE = 10;
-const ASSETS_DIR = "/assets/";
-const MAX_DEPTH = 9; // 最大目录深度
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB 文件大小限制
+const BATCH_SIZE = 10;                      // 每批上传的文件数量
+const ASSETS_DIR = "/assets/";                // 思源资源目录路径
+const MAX_DEPTH = 9;                          // 最大目录深度限制
+const MAX_FILE_SIZE = 100 * 1024 * 1024;     // 单个文件大小限制（100MB）
 
-// 通过 window.require 获取 Node.js 模块
+// 通过 window.require 获取 Node.js 模块（思源插件环境限制）
 const fs = window.require('fs');
 const path = window.require('path');
 
@@ -51,23 +52,32 @@ const HREF_ATTR = "data-href";
 const BLOCK_ID_ATTR = "data-node-id";
 const HIDDEN_DIRS = new Set(['node_modules', '.git', '.vscode', '.idea']);
 
+// 目录树节点接口
 interface TreeNode {
-    name: string;
-    type: "file" | "directory" | "symlink";
-    filePath?: string;
-    url?: string;
-    children?: TreeNode[];
-    linkTarget?: string;
+    name: string;                              // 文件/目录名
+    type: "file" | "directory" | "symlink";    // 节点类型
+    filePath?: string;                         // 文件完整路径（遍历时填充）
+    url?: string;                              // 上传后的 URL（上传后填充）
+    children?: TreeNode[];                     // 子节点（目录类型）
+    linkTarget?: string;                       // 符号链接目标路径
 }
 
 type FilterFn = (name: string) => boolean;
 
+// 默认文件过滤器：跳过隐藏文件和系统目录
 const defaultFilter: FilterFn = (name) => {
     if (name.startsWith('.') || name.startsWith('~')) return false;
     return !HIDDEN_DIRS.has(name);
 };
 
+// 文件名缓存：避免重复计算 basename（性能优化）
 const fileNameCache = new Map<string, string>();
+
+/**
+ * 获取文件名（带缓存）
+ * @param filePath 文件完整路径
+ * @returns 文件名
+ */
 function getFileName(filePath: string): string {
     let name = fileNameCache.get(filePath);
     if (!name) {
@@ -77,24 +87,28 @@ function getFileName(filePath: string): string {
     return name;
 }
 
+/** 清理缓存（操作完成后调用，释放内存） */
 function clearCache() {
     fileNameCache.clear();
 }
 
+// 思源笔记插件主类
 export default class NFPlugin extends Plugin{
-    // @ts-ignore
+    // @ts-ignore - i18n 由思源运行时注入
     declare i18n: II18n;
 
-    private siyuanWorkspaceDir: string | null = null;
-    private normalizedWorkspaceDir: string | null = null;
-    private uploadAbortController: AbortController | null = null;
-    private failedFiles: string[] = [];
+    private siyuanWorkspaceDir: string | null = null;        // 思源工作目录原始路径
+    private normalizedWorkspaceDir: string | null = null;    // 规范化后的工作目录路径（缓存）
+    private uploadAbortController: AbortController | null = null;  // 用于取消上传
+    private failedFiles: string[] = [];                       // 记录失败的文件列表
 
+    /** 插件加载入口 */
     async onload() {
         this.eventBus.on("open-menu-link", this.handleOpenMenuLink.bind(this));
         this.initSiyuanWorkspaceDir();
     }
 
+    /** 初始化思源工作目录 */
     private initSiyuanWorkspaceDir(): void {
         try {
             if (window.siyuan?.config?.system?.workspaceDir) {
@@ -106,12 +120,22 @@ export default class NFPlugin extends Plugin{
         }
     }
 
+    /**
+     * 检查路径是否在思源工作目录下
+     * @param filePath 待检查的文件路径
+     * @returns 是否在工作目录内
+     */
     private isInSiyuanWorkspace(filePath: string): boolean {
         if (!this.normalizedWorkspaceDir) return false;
         const normalizedPath = path.normalize(filePath);
         return normalizedPath.startsWith(this.normalizedWorkspaceDir + path.sep);
     }
 
+    /**
+     * 检查路径是否为思源工作目录的祖先目录（防止上传父目录或工作目录本身）
+     * @param filePath 待检查的文件路径
+     * @returns 是否为工作目录的祖先
+     */
     private isAncestorOfSiyuanWorkspace(filePath: string): boolean {
         if (!this.normalizedWorkspaceDir) return false;
         const normalizedPath = path.normalize(filePath);
@@ -119,10 +143,20 @@ export default class NFPlugin extends Plugin{
                normalizedPath === this.normalizedWorkspaceDir;
     }
 
+    /**
+     * 安全验证：检查路径是否包含路径遍历攻击 (../)
+     * @param filePath 待检查的文件路径
+     * @returns 是否包含路径遍历字符
+     */
     private hasPathTraversal(filePath: string): boolean {
         return filePath.includes('..');
     }
 
+    /**
+     * 综合路径验证（安全检查）
+     * @param filePath 待验证的文件路径
+     * @returns 验证结果
+     */
     private validatePath(filePath: string): {valid: boolean, error?: string} {
         if (this.hasPathTraversal(filePath)) {
             return {valid: false, error: this.i18n.error.pathTraversal};
@@ -143,7 +177,7 @@ export default class NFPlugin extends Plugin{
         return {valid: true};
     }
 
-
+    /** 处理链接菜单打开事件（思源事件监听） */
     private handleOpenMenuLink = async ({detail}: {detail: IMenuBaseDetail}) => {
         const {menu, element} = detail;
         if (!element) return;
@@ -160,6 +194,13 @@ export default class NFPlugin extends Plugin{
         }
     };
 
+    /**
+     * 验证文件路径并添加上传菜单项
+     * @param filePath 文件路径
+     * @param element DOM 元素
+     * @param menu 菜单对象
+     * @returns 是否验证通过
+     */
     private isValidFilePath(filePath: string, element: HTMLElement, menu: any): boolean {
         const fileName = getFileName(filePath);
         const blockId = this.findBlockId(element);
@@ -193,6 +234,11 @@ export default class NFPlugin extends Plugin{
         return true;
     }
 
+    /**
+     * 向上遍历 DOM 树查找块 ID
+     * @param element 起始元素
+     * @returns 块 ID 或 null
+     */
     private findBlockId(element: HTMLElement): string | null {
         let current: HTMLElement | null = element;
         while (current) {
@@ -203,6 +249,12 @@ export default class NFPlugin extends Plugin{
         return null;
     }
 
+    /**
+     * 上传文件夹并插入到编辑器（核心流程）
+     * 流程：1.扫描目录 2.批量上传 3.回填URL 4.插入markdown
+     * @param dirPath 目录路径
+     * @param blockId 目标块 ID
+     */
     private async uploadAndInsert(dirPath: string, blockId: string) {
         const startTime = Date.now();
         clearCache();
@@ -252,6 +304,7 @@ export default class NFPlugin extends Plugin{
         }
     }
 
+    /** 检查路径是否为目录 */
     private isDirectory(dirPath: string): boolean {
         try {
             return fs.statSync(dirPath).isDirectory();
@@ -260,6 +313,12 @@ export default class NFPlugin extends Plugin{
         }
     }
 
+    /**
+     * 构建目录树（并发处理子目录）
+     * @param dirPath 目录路径
+     * @param currentDepth 当前深度
+     * @returns 树结构和文件路径列表
+     */
     private async buildDirectoryTree(
         dirPath: string,
         currentDepth: number
@@ -287,6 +346,7 @@ export default class NFPlugin extends Plugin{
 
             try {
                 if (entry.isFile()) {
+                    // P0 优化：普通文件使用同步 stat，无需异步 lstat（entry.isFile() 已确认类型）
                     const size = fs.statSync(fullPath).size;
                     if (size > MAX_FILE_SIZE) {
                         const sizeMB = (size / 1024 / 1024).toFixed(1);
@@ -320,6 +380,7 @@ export default class NFPlugin extends Plugin{
             }
         }
 
+        // 并发处理子目录（最多 3 个 worker），平衡性能与资源占用
         const MAX_CONCURRENT_SUBDIRS = 3;
         let index = 0;
 
@@ -344,6 +405,11 @@ export default class NFPlugin extends Plugin{
         return {tree: nodes, filePaths};
     }
 
+    /**
+     * 将上传后的 URL 回填到树结构中
+     * @param tree 树结构
+     * @param urlMap 文件路径到 URL 的映射
+     */
     private fillTreeUrls(tree: TreeNode[], urlMap: Map<string, string>): void {
         for (const node of tree) {
             if (node.type === "file" && node.filePath) {
@@ -359,6 +425,11 @@ export default class NFPlugin extends Plugin{
         }
     }
 
+    /**
+     * 批量上传文件（分批处理，每批 BATCH_SIZE 个文件）
+     * @param filePaths 文件路径列表
+     * @returns 文件路径到 URL 的映射
+     */
     private async uploadFilesInBatches(filePaths: string[]): Promise<Map<string, string>> {
         const allResults = new Map<string, string>();
 
@@ -392,6 +463,11 @@ export default class NFPlugin extends Plugin{
         return allResults;
     }
 
+    /**
+     * 检测批次内同名文件，生成重命名映射
+     * @param filePaths 文件路径列表
+     * @returns 文件路径到重命名后文件名的映射
+     */
     private generateRenameMap(filePaths: string[]): Map<string, string> {
         const nameCountMap = new Map<string, number>();
         const renameMap = new Map<string, string>();
@@ -412,15 +488,29 @@ export default class NFPlugin extends Plugin{
         return renameMap;
     }
 
+    /**
+     * 上传单个批次
+     * @param batch 批次文件路径列表
+     * @param renameMap 重命名映射
+     * @param batchNumber 批次编号
+     * @returns 文件名到 URL 的映射
+     */
     private async uploadSingleBatch(batch: string[], renameMap: Map<string, string>, batchNumber: number): Promise<Map<string, string>> {
         const formData = await this.createFormDataFromPaths(batch, renameMap);
         return this.sendUploadRequest(formData, batchNumber);
     }
 
+    /**
+     * 从文件路径创建 FormData（并发读取文件）
+     * @param filePaths 文件路径列表
+     * @param renameMap 重命名映射
+     * @returns FormData 对象
+     */
     private async createFormDataFromPaths(filePaths: string[], renameMap: Map<string, string>): Promise<FormData> {
         const formData = new FormData();
         formData.append("assetsDirPath", ASSETS_DIR);
 
+        // 并发读取文件（最多 5 个），降低内存占用峰值
         const MAX_CONCURRENT_READS = 5;
         const results: Array<{file: File | null, success: boolean}> = [];
 
@@ -455,6 +545,12 @@ export default class NFPlugin extends Plugin{
         return formData;
     }
 
+    /**
+     * 发送上传请求到思源 API
+     * @param formData FormData 对象
+     * @param batchNumber 批次编号
+     * @returns 文件名到 URL 的映射
+     */
     private async sendUploadRequest(
         formData: FormData,
         batchNumber: number
@@ -485,6 +581,7 @@ export default class NFPlugin extends Plugin{
         }
     }
 
+    /** 解析思源 API 响应 */
     private parseUploadResponse(succMap: Record<string, string>): Map<string, string> {
         const results = new Map<string, string>();
         for (const [name, url] of Object.entries(succMap)) {
@@ -493,12 +590,25 @@ export default class NFPlugin extends Plugin{
         return results;
     }
 
+    /**
+     * 将目录树插入到编辑器
+     * @param tree 目录树
+     * @param dirPath 原始目录路径
+     * @param blockId 目标块 ID
+     */
     private async insertMarkdown(tree: TreeNode[], dirPath: string, blockId: string): Promise<void> {
         const dirName = getFileName(dirPath);
         const markdown = this.generateTreeMarkdown(tree, dirName);
         await this.insertToEditor(markdown, blockId);
     }
 
+    /**
+     * 生成目录树的 Markdown 文本
+     * @param tree 目录树
+     * @param rootName 根目录名称
+     * @param indent 缩进层级
+     * @returns Markdown 文本
+     */
     private generateTreeMarkdown(tree: TreeNode[], rootName: string, indent = 0): string {
         const lines: string[] = [];
 
@@ -513,6 +623,12 @@ export default class NFPlugin extends Plugin{
         return lines.join("\n");
     }
 
+    /**
+     * 渲染单个节点到 Markdown（优化：直接传入 lines 数组引用）
+     * @param node 树节点
+     * @param indent 缩进层级
+     * @param lines Markdown 行数组
+     */
     private renderNode(node: TreeNode, indent: number, lines: string[]): void {
         const prefix = "  ".repeat(indent + 1) + "- ";
 
@@ -530,6 +646,7 @@ export default class NFPlugin extends Plugin{
         }
     }
 
+    /** 调用思源 API 插入内容到编辑器 */
     private async insertToEditor(markdown: string, blockId: string): Promise<void> {
         try {
             await fetchSyncPost("/api/block/insertBlock", {
@@ -542,20 +659,24 @@ export default class NFPlugin extends Plugin{
         }
     }
 
+    /** 获取错误信息的字符串表示 */
     private getErrorMessage(err: unknown): string {
         if (err instanceof Error) return err.message;
         return String(err);
     }
 
+    /** 记录错误日志 */
     private logError(message: string, err?: unknown): void {
         const errorDetails = err ? `: ${this.getErrorMessage(err)}` : "";
         console.error(`[${this.name}] ${message}${errorDetails}`);
     }
 
+    /** 记录警告日志 */
     private logWarn(message: string): void {
         console.warn(`[${this.name}] ${message}`);
     }
 
+    /** 插件卸载入口 */
     async onunload() {
         this.cancelUpload();
 
@@ -563,6 +684,10 @@ export default class NFPlugin extends Plugin{
         clearCache();
     }
 
+    /**
+     * 取消当前上传（公开方法，可供外部调用）
+     * 通过 AbortController 中断所有异步操作
+     */
     public cancelUpload(): void {
         if (this.uploadAbortController) {
             this.uploadAbortController.abort();
