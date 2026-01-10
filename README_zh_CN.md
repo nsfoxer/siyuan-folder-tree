@@ -18,22 +18,22 @@
 
 ### 基本使用
 
-1. **在思源笔记中创建一个 file:// 链接**
+1. **在思源笔记中拖入文件夹**
 
-   在编辑器中输入：
-   ```markdown
-   file:///C:/Users/YourName/Documents/MyFolder
-   ```
+  ![拖入文件夹](https://nsfoxer-oss.oss-cn-beijing.aliyuncs.com/img/6c4303069fc3fd4709a45b1d19747e2202bd975ccd057e883ab1da580e6c1a38.webp)
 
 2. **右键点击链接**
 
    在链接上点击右键，选择 **「上传本地资源: [文件夹名]」**
+   ![右键点击](https://nsfoxer-oss.oss-cn-beijing.aliyuncs.com/img/c10837759e69b095c8f687153954b51f41c648bf99ffe8c5483f6062b837b9c0.webp)
 
 3. **等待上传完成**
 
    - 插件会先扫描文件夹中的所有文件
    - 然后批量上传文件到思源资源目录
    - 最后在当前块下方插入目录树 Markdown
+   
+   ![生成文件树](https://nsfoxer-oss.oss-cn-beijing.aliyuncs.com/img/8d3fd0dbb786d68cf5f420a20bbc1a86b5fa2e53eff47f8b06de6daac741b706.webp)
 
 ### 生成的目录树示例
 
@@ -154,4 +154,4 @@ MIT License
 ## 📮 联系方式
 
 - 作者：nsfoxer
-- 仓库：https://github.com/foxer/siyuan-folder-tree
+- 仓库：https://github.com/nsfoxer/siyuan-folder-tree

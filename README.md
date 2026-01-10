@@ -18,22 +18,22 @@
 
 ### Basic Usage
 
-1. **Create a file:// link in SiYuan Note**
+1. **Drag a folder into SiYuan Note**
 
-   Enter in the editor:
-   ```markdown
-   file:///C:/Users/YourName/Documents/MyFolder
-   ```
+   ![Drag folder into SiYuan](https://nsfoxer-oss.oss-cn-beijing.aliyuncs.com/img/6c4303069fc3fd4709a45b1d19747e2202bd975ccd057e883ab1da580e6c1a38.webp)
 
 2. **Right-click on the link**
 
    Right-click on the link and select **「Upload local resource: [folder name]」**
+   ![Right-click on link](https://nsfoxer-oss.oss-cn-beijing.aliyuncs.com/img/c10837759e69b095c8f687153954b51f41c648bf99ffe8c5483f6062b837b9c0.webp)
 
 3. **Wait for upload to complete**
 
    - The plugin will first scan all files in the folder
    - Then batch upload files to SiYuan assets directory
    - Finally insert directory tree Markdown below the current block
+
+   ![Generated file tree](https://nsfoxer-oss.oss-cn-beijing.aliyuncs.com/img/8d3fd0dbb786d68cf5f420a20bbc1a86b5fa2e53eff47f8b06de6daac741b706.webp)
 
 ### Generated Directory Tree Example
 
@@ -154,4 +154,4 @@ Issues and Pull Requests are welcome!
 ## 📮 Contact
 
 - Author: nsfoxer
-- Repository: https://github.com/foxer/siyuan-folder-tree
+- Repository: https://github.com/nsfoxer/siyuan-folder-tree
