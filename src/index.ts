@@ -24,6 +24,7 @@ interface II18n {
         uploadFailed: string;
         insertFailed: string;
         unknownTarget: string;
+        tooManyFiles: string;
     };
     upload: {
         label: string;
@@ -41,6 +42,7 @@ const BATCH_SIZE = 10;                      // 每批上传的文件数量
 const ASSETS_DIR = "/assets/";                // 思源资源目录路径
 const MAX_DEPTH = 9;                          // 最大目录深度限制
 const MAX_FILE_SIZE = 100 * 1024 * 1024;     // 单个文件大小限制（100MB）
+const MAX_FILES = 1000;                       // 最大文件数量限制
 
 // 通过 window.require 获取 Node.js 模块（思源插件环境限制）
 const fs = window.require('fs');
@@ -269,6 +271,12 @@ export default class NFPlugin extends Plugin{
                 showMessage(`[${this.name}]: ${this.i18n.upload.emptyFolder}`);
                 return;
             }
+            if (filePaths.length >= MAX_FILES) {
+                showMessage(`[${this.name}]: ${this.i18n.error.tooManyFiles
+                    .replace('${maxFiles}', String(MAX_FILES))
+                }`);
+                return;
+            }
 
             showMessage(`[${this.name}]: ${this.i18n.upload.foundFiles.replace('${count}', String(filePaths.length))}`);
             const urlMap = await this.uploadFilesInBatches(filePaths);
@@ -317,11 +325,13 @@ export default class NFPlugin extends Plugin{
      * 构建目录树（并发处理子目录）
      * @param dirPath 目录路径
      * @param currentDepth 当前深度
+     * @param fileCountRef 文件计数引用（共享计数器）
      * @returns 树结构和文件路径列表
      */
     private async buildDirectoryTree(
         dirPath: string,
-        currentDepth: number
+        currentDepth: number,
+        fileCountRef: {count: number} = {count: 0}
     ): Promise<{tree: TreeNode[], filePaths: string[]}> {
         if (currentDepth >= MAX_DEPTH) {
             throw new Error(this.i18n.error.depthExceeded
@@ -345,6 +355,10 @@ export default class NFPlugin extends Plugin{
             const fullPath = path.join(dirPath, entry.name);
 
             try {
+                // 检查文件数量限制（在添加文件之前）
+                if (fileCountRef.count >= MAX_FILES) {
+                   continue;
+                }
                 if (entry.isFile()) {
                     // P0 优化：普通文件使用同步 stat，无需异步 lstat（entry.isFile() 已确认类型）
                     const size = fs.statSync(fullPath).size;
@@ -357,8 +371,10 @@ export default class NFPlugin extends Plugin{
                         this.failedFiles.push(fullPath);
                         continue;
                     }
+
                     filePaths.push(fullPath);
                     nodes.push({name: entry.name, type: "file", filePath: fullPath});
+                    fileCountRef.count++;
                 } else if (entry.isSymbolicLink()) {
                     continue;
                 } else if (entry.isDirectory()) {
@@ -390,7 +406,7 @@ export default class NFPlugin extends Plugin{
                     break;
                 }
                 const subDir = subDirs[index++];
-                const result = await this.buildDirectoryTree(subDir.path, currentDepth + 1);
+                const result = await this.buildDirectoryTree(subDir.path, currentDepth + 1, fileCountRef);
                 nodes.push({name: subDir.name, type: "directory", children: result.tree});
                 filePaths.push(...result.filePaths);
             }

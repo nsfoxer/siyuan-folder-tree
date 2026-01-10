@@ -20,7 +20,8 @@
         "batchUploadFailed": "העלאה אצווה נכשלה (אצווה ${batchNumber}): ${error}",
         "uploadFailed": "העלאה נכשלה",
         "insertFailed": "הוספת תוכן נכשלה",
-        "unknownTarget": "יעד לא ידוע"
+        "unknownTarget": "יעד לא ידוע",
+        "tooManyFiles": "יותר מדי קבצים (מקסימום ${maxFiles})"
     },
     "upload": {
         "label": "העלאת משאב מקומי: ${fileName}",

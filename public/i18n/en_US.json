@@ -20,7 +20,8 @@
         "batchUploadFailed": "Batch upload failed (batch ${batchNumber}): ${error}",
         "uploadFailed": "Upload failed",
         "insertFailed": "Failed to insert content",
-        "unknownTarget": "Unknown target"
+        "unknownTarget": "Unknown target",
+        "tooManyFiles": "Too many files (maximum ${maxFiles})"
     },
     "upload": {
         "label": "Upload local resource: ${fileName}",

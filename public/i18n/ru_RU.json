@@ -20,7 +20,8 @@
         "batchUploadFailed": "Ошибка пакетной загрузки (пакет ${batchNumber}): ${error}",
         "uploadFailed": "Ошибка загрузки",
         "insertFailed": "Ошибка вставки содержимого",
-        "unknownTarget": "Неизвестная цель"
+        "unknownTarget": "Неизвестная цель",
+        "tooManyFiles": "Слишком много файлов (максимум ${maxFiles})"
     },
     "upload": {
         "label": "Загрузить локальный ресурс: ${fileName}",

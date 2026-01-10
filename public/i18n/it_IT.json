@@ -20,7 +20,8 @@
         "batchUploadFailed": "Caricamento batch non riuscito (batch ${batchNumber}): ${error}",
         "uploadFailed": "Caricamento non riuscito",
         "insertFailed": "Inserimento del contenuto non riuscito",
-        "unknownTarget": "Destinazione sconosciuta"
+        "unknownTarget": "Destinazione sconosciuta",
+        "tooManyFiles": "Troppi file (massimo ${maxFiles})"
     },
     "upload": {
         "label": "Carica risorsa locale: ${fileName}",

@@ -20,7 +20,8 @@
         "batchUploadFailed": "Error en la carga por lotes (lote ${batchNumber}): ${error}",
         "uploadFailed": "Error en la carga",
         "insertFailed": "Error al insertar contenido",
-        "unknownTarget": "Objetivo desconocido"
+        "unknownTarget": "Objetivo desconocido",
+        "tooManyFiles": "Demasiados archivos (máximo ${maxFiles})"
     },
     "upload": {
         "label": "Cargar recurso local: ${fileName}",

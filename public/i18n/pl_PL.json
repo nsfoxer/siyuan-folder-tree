@@ -20,7 +20,8 @@
         "batchUploadFailed": "Nie udało się przesłać partii (partia ${batchNumber}): ${error}",
         "uploadFailed": "Przesyłanie nie powiodło się",
         "insertFailed": "Nie udało się wstawić zawartości",
-        "unknownTarget": "Nieznany cel"
+        "unknownTarget": "Nieznany cel",
+        "tooManyFiles": "Zbyt wiele plików (maksimum ${maxFiles})"
     },
     "upload": {
         "label": "Prześlij zasób lokalny: ${fileName}",

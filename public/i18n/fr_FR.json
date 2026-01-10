@@ -20,7 +20,8 @@
         "batchUploadFailed": "Échec du téléchargement par lot (lot ${batchNumber}) : ${error}",
         "uploadFailed": "Échec du téléchargement",
         "insertFailed": "Échec de l'insertion du contenu",
-        "unknownTarget": "Cible inconnue"
+        "unknownTarget": "Cible inconnue",
+        "tooManyFiles": "Trop de fichiers (maximum ${maxFiles})"
     },
     "upload": {
         "label": "Télécharger la ressource locale : ${fileName}",

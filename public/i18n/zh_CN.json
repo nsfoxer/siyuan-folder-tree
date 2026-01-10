@@ -20,7 +20,8 @@
         "batchUploadFailed": "批量上传失败 (批次 ${batchNumber}): ${error}",
         "uploadFailed": "上传失败",
         "insertFailed": "插入内容失败",
-        "unknownTarget": "未知目标"
+        "unknownTarget": "未知目标",
+        "tooManyFiles": "文件数量超过限制 (最大 ${maxFiles} 个)"
     },
     "upload": {
         "label": "上传本地资源: ${fileName}",

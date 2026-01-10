@@ -20,7 +20,8 @@
         "batchUploadFailed": "バッチアップロードが失敗しました (バッチ ${batchNumber}): ${error}",
         "uploadFailed": "アップロードに失敗しました",
         "insertFailed": "コンテンツの挿入に失敗しました",
-        "unknownTarget": "不明なターゲット"
+        "unknownTarget": "不明なターゲット",
+        "tooManyFiles": "ファイル数が制限を超えています (最大 ${maxFiles} 個)"
     },
     "upload": {
         "label": "ローカルリソースをアップロード: ${fileName}",

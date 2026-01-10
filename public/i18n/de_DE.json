@@ -20,7 +20,8 @@
         "batchUploadFailed": "Batch-Upload fehlgeschlagen (Batch ${batchNumber}): ${error}",
         "uploadFailed": "Upload fehlgeschlagen",
         "insertFailed": "Fehler beim Einfügen von Inhalten",
-        "unknownTarget": "Unbekanntes Ziel"
+        "unknownTarget": "Unbekanntes Ziel",
+        "tooManyFiles": "Zu viele Dateien (Maximum ${maxFiles})"
     },
     "upload": {
         "label": "Lokale Ressource hochladen: ${fileName}",
